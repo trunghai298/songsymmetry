@@ -28,9 +28,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import Tooltip from "../components/Tooltip";
+import { useToast } from "@/hooks/use-toast";
 
 type AlbumTracks = {
   type: "album";
