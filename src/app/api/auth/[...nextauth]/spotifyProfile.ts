@@ -30,6 +30,7 @@ const scopes = [
   "user-library-read",
   "user-follow-read",
   "user-read-private",
+  "user-read-playback-state",
 ];
 
 authURL.searchParams.append("scope", scopes.join(" "));

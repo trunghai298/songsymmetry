@@ -5,7 +5,7 @@ import { Inter } from "next/font/google";
 import AuthSessionProvider from "./components/AuthSessionProvider";
 import { Header } from "./components/core/Header";
 import { EmbedPlayer } from "./components/core/EmbedPlayer";
-import { Providers } from "../lib/redux/providers";
+import { Providers as ReduxProviders } from "../lib/redux/providers";
 import "bootstrap-icons/font/bootstrap-icons.css";
 import { Toaster } from "@/components/ui/toaster";
 import Footer from "./components/core/Footer";
@@ -24,14 +24,14 @@ export default async function RootLayout({
     <html lang="en">
       <AuthSessionProvider session={session}>
         <body className={`${inter.className} h-full min-h-screen bg-gray-900`}>
-          <Providers>
+          <ReduxProviders>
             <SubscribeDialog />
             <EmbedPlayer />
             <Toaster />
             <Header />
             {children}
             {session && <Footer />}
-          </Providers>
+          </ReduxProviders>
         </body>
       </AuthSessionProvider>
     </html>

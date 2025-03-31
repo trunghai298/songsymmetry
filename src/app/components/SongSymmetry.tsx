@@ -24,9 +24,9 @@ import { DialogClose } from "@radix-ui/react-dialog";
 import { Loader } from "../components/core/Loader";
 import TracksGrid from "../components/TracksGrid";
 import { setOpenSubscribeDialog } from "@/lib/redux/slices/subscribeSlices";
-import { useToast } from "@/components/ui/use-toast";
 import "./style.css";
 import { ToastAction } from "@/components/ui/toast";
+import { useToast } from "@/hooks/use-toast";
 
 type SongRecommendation = {
   source: Track;
@@ -41,10 +41,6 @@ type SongRecommendation = {
       afterRelinkingSize: number;
     }[];
   };
-};
-
-type IAudioFeatures = {
-  [key: string]: number;
 };
 
 function SongSymmetry() {
@@ -70,14 +66,7 @@ function SongSymmetry() {
     fetchNext: false,
     nextTrackId: "",
   });
-  const [audioFeatures, setAudioFeatures] = useState<IAudioFeatures>({
-    acousticness: 0,
-    danceability: 0,
-    energy: 0,
-    liveness: 0,
-    speechiness: 0,
-    valence: 0,
-  });
+
   const [songLyrics, setSongLyrics] = useState<string>("loading");
   const dispatch = useAppDispatch();
   const router = useRouter();
@@ -87,7 +76,7 @@ function SongSymmetry() {
 
   const onQueryChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
-    debountSearch(e.target.value);
+    debounceSearch(e.target.value);
   };
 
   const onSearchTrack = async (q: string) => {
@@ -99,65 +88,29 @@ function SongSymmetry() {
     }
   };
 
-  const getFeatureHeight = (feature: string) => {
-    return Math.round(((audioFeatures[feature] / 1) * 100) / 10) * 10;
-  };
-
-  const recommendationAlgorithm = async (trackFeatures: AudioFeatures) => {
-    const audioVibes = {
-      acousticness: trackFeatures.acousticness,
-      danceability: trackFeatures.danceability,
-      energy: trackFeatures.energy,
-      instrumentalness: trackFeatures.instrumentalness,
-      liveness: trackFeatures.liveness,
-      speechiness: trackFeatures.speechiness,
-      valence: trackFeatures.valence,
-    };
-
-    const sortVibes = Object.entries(audioVibes)
-      .sort((a, b) => a[1] - b[1])
-      .reverse();
-    const rcmArguments: { [key: string]: any } = {};
-
-    forEach(sortVibes, (vibe) => {
-      if (!vibe[1]) return;
-      rcmArguments[`min_${vibe[0]}`] = vibe[1] - 0.5 < 0 ? 0 : vibe[1] - 0.5;
-      rcmArguments[`max_${vibe[0]}`] = vibe[1] + 0.5;
-    });
-
-    return rcmArguments;
-  };
-
-  const onGetRecommendation = async (
-    track: Track,
-    audioFeaturesInput?: AudioFeatures
-  ) => {
+  const onGetRecommendation = async (track: Track) => {
     setRecommendationState((state) => ({ ...state, fetching: true }));
-    const audioFeatures = audioFeaturesInput
-      ? audioFeaturesInput
-      : await sdk.tracks.audioFeatures(track.id);
-    const rcmArguments = await recommendationAlgorithm(audioFeatures);
 
-    const results = await sdk.recommendations.get({
-      seed_tracks: [track.id],
-      ...rcmArguments,
-      limit: 20,
-    });
+    // const results = await sdk.recommendations.get({
+    //   seed_tracks: [track.id],
+    //   limit: 20,
+    // });
+
     setRecommendationState({
       fetching: false,
       fetchNext: false,
       nextTrackId: "",
     });
-    setSongRecommendation({ source: track, recommendation: results });
+    setSongRecommendation({
+      source: track,
+      recommendation: { tracks: [track] },
+    });
   };
 
   const onRefreshRecommendation = async () => {
     try {
       setPlaylist({ state: "refreshing" });
-      await onGetRecommendation(
-        songRecommendation?.source as Track,
-        audioFeatures as unknown as AudioFeatures
-      );
+      // await onGetRecommendation(songRecommendation?.source as Track);
       toast({
         title: "Recommendation refreshed!",
         description: "Enjoy the new songs.",
@@ -260,27 +213,9 @@ function SongSymmetry() {
     (async () => {
       if (!recommendationState.nextTrackId) return;
       try {
-        const [track, audioFeatures] = await Promise.all([
-          sdk.tracks.get(recommendationState.nextTrackId),
-          sdk.tracks.audioFeatures(recommendationState.nextTrackId),
-        ]);
-        setAudioFeatures(
-          omit(audioFeatures, [
-            "id",
-            "uri",
-            "track_href",
-            "type",
-            "analysis_url",
-            "duration_ms",
-            "mode",
-            "time_signature",
-            "key",
-            "tempo",
-            "loudness",
-            "instrumentalness",
-          ])
-        );
-        onGetRecommendation(track, audioFeatures);
+        const track = await sdk.tracks.get(recommendationState.nextTrackId);
+        console.log("track: ", track);
+        onGetRecommendation(track);
       } catch (error: any) {
         if (error.message.includes("exceeded its rate limits")) {
           toast({
@@ -307,6 +242,10 @@ function SongSymmetry() {
         nextTrackId: trackId,
       });
     }
+
+    sdk.player.getCurrentlyPlayingTrack().then((track) => {
+      console.log("track", track);
+    });
   }, []);
 
   useEffect(() => {
@@ -327,10 +266,14 @@ function SongSymmetry() {
     (async () => {
       try {
         const res = await fetch(
-          `https://lyrist.vercel.app/api/${songRecommendation.source.name}/${songRecommendation.source.artists[0].name}`
+          `https://api.lyrics.ovh/v1/${songRecommendation.source.artists[0].name}/${songRecommendation.source.name}`
         );
         const resJson = await res.json();
-        setSongLyrics(resJson.lyrics);
+        if (resJson.error) {
+          setSongLyrics("Lyrics not found");
+        } else {
+          setSongLyrics(resJson.lyrics);
+        }
       } catch (error: any) {
         setSongLyrics("not found");
         toast({
@@ -361,7 +304,7 @@ function SongSymmetry() {
     });
   }, []);
 
-  const debountSearch = debounce(onSearchTrack, 1000);
+  const debounceSearch = debounce(onSearchTrack, 1000);
 
   const backAction = () => {
     return (
@@ -478,29 +421,6 @@ function SongSymmetry() {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
-            </div>
-          </div>
-          <div className="h-[200px] sm:h-[350px] sm:w-[60%] md:w-[60%] ld:w-[60%] xl:w-[50%] w-auto flex flex-col space-y-6 items-start justify-between p-6 rounded-xl bg-gray-900">
-            <h3 className="text-md text-left font-bold text-gray-300">
-              Audio Features
-            </h3>
-            <div className="w-full flex flex-row space-x-4 items-center justify-between">
-              {Object.keys(audioFeatures).map((key: string) => (
-                <div
-                  className="flex flex-col space-y-2 items-center overflow-x-hidden"
-                  key={key}
-                >
-                  <div className="w-[2px] h-[50px] sm:w-[10px] sm:h-[230px] bg-[#343434] rounded-md relative">
-                    <div
-                      className={`w-[4px] sm:w-[15px] bg-[#dcf689] rounded-md absolute bottom-0 left-2/4 -translate-x-1/2`}
-                      style={{ height: `${getFeatureHeight(key)}%` }}
-                    ></div>
-                  </div>
-                  <h4 className="w-full text-xs text-left font-light overflow-hidden sm:font-normal text-gray-400 text-ellipsis">
-                    {key}
-                  </h4>
-                </div>
-              ))}
             </div>
           </div>
         </div>
@@ -634,7 +554,7 @@ function SongSymmetry() {
             );
           })}
         </div>
-        <div className="w-full flex flex-row space-x-4 justify-center items-center">
+        {/* <div className="w-full flex flex-row space-x-4 justify-center items-center">
           <Button
             onClick={() => dispatch(setOpenSubscribeDialog())}
             variant="outline"
@@ -642,50 +562,9 @@ function SongSymmetry() {
           >
             Want More Songs Like This?
           </Button>
-        </div>
+        </div> */}
       </div>
     );
-  };
-
-  const calculateCosineSimilarity = async (targetSong: Track) => {
-    const targetSongFeatures = await sdk.tracks.audioFeatures(targetSong.id);
-    const targetSongFeaturesNormalized: IAudioFeatures = omit(
-      targetSongFeatures,
-      [
-        "id",
-        "uri",
-        "track_href",
-        "type",
-        "analysis_url",
-        "duration_ms",
-        "mode",
-        "time_signature",
-        "key",
-        "tempo",
-        "loudness",
-        "instrumentalness",
-      ]
-    );
-    let dotProduct = 0;
-    let normA = 0;
-    let normB = 0;
-
-    for (const key in audioFeatures) {
-      if (targetSongFeaturesNormalized.hasOwnProperty(key)) {
-        dotProduct += audioFeatures[key] * targetSongFeaturesNormalized[key];
-        normA += audioFeatures[key] ** 2;
-        normB += targetSongFeaturesNormalized[key] ** 2;
-      }
-    }
-
-    normA = Math.sqrt(normA);
-    normB = Math.sqrt(normB);
-
-    if (normA === 0 || normB === 0) {
-      return 0; // Avoid division by zero
-    }
-
-    return dotProduct / (normA * normB);
   };
 
   const renderRecommendations = () => {
@@ -740,7 +619,7 @@ function SongSymmetry() {
                 <div className="w-full flex flex-col" key={track.id}>
                   <div
                     className="w-full flex flex-row space-x-4 justify-start items-center px-2 py-1 rounded-md hover:bg-gray-400 cursor-pointer"
-                    onClick={() => onGetRecommendation(track)}
+                    // onClick={() => onGetRecommendation(track)}
                   >
                     <img
                       width={100}

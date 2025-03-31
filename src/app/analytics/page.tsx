@@ -1,7 +1,11 @@
-import React from "react";
-import TopTracks from "../components/TopTracks";
-import UserPlaylists from "../components/UserPlaylists";
+"use client";
+
+import React, { useState, useEffect } from "react";
 import Container from "../components/core/Container";
+import { getMostStreamedSongs } from "./actions";
+import MostStreamSongs from "./MostStreamSongs";
+import { MostStreamedSong, SongFilters } from "@/types/song";
+import { debounce } from "lodash";
 
 const WelcomeSection = () => {
   return (
@@ -23,11 +27,30 @@ const WelcomeSection = () => {
 };
 
 function Analytics() {
+  const [filters, setFilters] = useState<SongFilters>({
+    limit: 20,
+    year: "2024",
+  });
+  const [topSongs, setTopSongs] = useState<MostStreamedSong[]>([]);
+
+  const fetchTopSongs = debounce(async () => {
+    const data = await getMostStreamedSongs(filters);
+    setTopSongs(data);
+  }, 1000);
+
+  useEffect(() => {
+    console.log("Fetching top songs", filters);
+    fetchTopSongs();
+  }, [filters]);
+
   return (
     <Container>
       <WelcomeSection />
-      <TopTracks />
-      <UserPlaylists />
+      <MostStreamSongs
+        songs={topSongs}
+        filters={filters}
+        setFilters={setFilters}
+      />
     </Container>
   );
 }
