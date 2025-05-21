@@ -89,8 +89,7 @@ module.exports = {
         sm: "calc(0.5rem - 4px)",
       },
       fontFamily: {
-        receipt:
-          "'receipt', 'Anonymous Pro', 'Courier New', Courier, monospace;'",
+        receipt: "'receipt', 'Anonymous Pro', 'Courier New', Courier, monospace",
       },
       zIndex: {
         max: "9999",
