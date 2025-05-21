@@ -68,10 +68,6 @@ function MostStreamSongs({
       const cleanName = track.name?.replace(/<[^>]*>?/gm, "").trim() || "";
       const cleanArtist = track.artist?.replace(/<[^>]*>?/gm, "").trim() || "";
 
-      // Create a search query with track name and artist for better results
-      const searchQuery = `${cleanName} ${cleanArtist}`;
-      console.log("Searching for track:", searchQuery);
-
       // Check if Spotify client is initialized
       if (!searchTrack) {
         console.error("searchTrack function is not available");
@@ -84,35 +80,59 @@ function MostStreamSongs({
         return;
       }
 
-      const results = await searchTrack(searchQuery);
+      // First search: Track name + artist name (for more accurate results)
+      const combinedSearchQuery = `${cleanName} ${cleanArtist}`;
+      console.log("Primary search (track+artist):", combinedSearchQuery);
+      const combinedResults = await searchTrack(combinedSearchQuery);
+      
+      // Second search: Artist name only (for more diverse results)
+      const artistSearchQuery = `artist:${cleanArtist}`;
+      console.log("Secondary search (artist only):", artistSearchQuery);
+      const artistResults = await searchTrack(artistSearchQuery);
+      
+      // Combine results, taking first 5 from combined search and up to 4 from artist search
+      // Filter out duplicates that might exist in both result sets based on track id
+      const primaryResults = combinedResults?.slice(0, 5) || [];
+      
+      // Get the IDs from primary results to filter out duplicates
+      const primaryIds = new Set(primaryResults.map(track => track.id));
+      
+      // Filter secondary results to remove duplicates from primary results
+      // and take only up to 4 additional tracks
+      const secondaryResults = (artistResults || [])
+        .filter(track => !primaryIds.has(track.id))
+        .slice(0, 4);
+      
+      // Combine the results
+      const mergedResults = [...primaryResults, ...secondaryResults];
 
-      if (results && results.length > 0) {
+      if (mergedResults.length > 0) {
         console.log(
           "Found track matches:",
-          results.length,
-          "First match:",
-          results[0].name,
-          "by",
-          results[0].artists[0].name
+          mergedResults.length,
+          "Primary matches:",
+          primaryResults.length,
+          "Secondary matches:",
+          secondaryResults.length
         );
 
         // Store results and show the results dialog
-        setSearchResults(results);
+        setSearchResults(mergedResults);
 
         // Cache the results for this track
         if (track.id) {
           setTrackSearchCache((prev) => ({
             ...prev,
-            [track.id.toString()]: results,
+            [track.id.toString()]: mergedResults,
           }));
         }
 
         setShowResultsDialog(true);
       } else {
-        console.log("No results found for:", searchQuery);
+        console.log("No results found for either search");
         toast({
           title: "No results",
-          description: `Could not find "${cleanName}" on Spotify`,
+          description: `Could not find "${cleanName}" by ${cleanArtist} on Spotify`,
           variant: "destructive",
         });
       }
@@ -185,29 +205,43 @@ function MostStreamSongs({
         const cleanName = track.name?.replace(/<[^>]*>?/gm, "").trim() || "";
         const cleanArtist =
           track.artist?.replace(/<[^>]*>?/gm, "").trim() || "";
-        const searchQuery = `${cleanName} ${cleanArtist}`;
-
-        console.log("Searching for direct play:", searchQuery);
-
+        
         if (!searchTrack) {
           throw new Error("Search function not available");
         }
 
+        // Run a more targeted search for direct play (using track + artist)
+        const searchQuery = `${cleanName} ${cleanArtist}`;
+        console.log("Searching for direct play:", searchQuery);
         const results = await searchTrack(searchQuery);
 
         if (results && results.length > 0) {
-          // Cache the results
+          // Also do the secondary search for caching purposes
+          const artistSearchQuery = `artist:${cleanArtist}`;
+          const artistResults = await searchTrack(artistSearchQuery);
+          
+          // Combine results as we do in handleSearchTrack
+          const primaryResults = results.slice(0, 5);
+          const primaryIds = new Set(primaryResults.map(track => track.id));
+          
+          const secondaryResults = (artistResults || [])
+            .filter(track => !primaryIds.has(track.id))
+            .slice(0, 4);
+          
+          const mergedResults = [...primaryResults, ...secondaryResults];
+
+          // Cache the combined results
           setTrackSearchCache((prev) => ({
             ...prev,
-            [track.id!.toString()]: results,
+            [track.id!.toString()]: mergedResults,
           }));
 
-          // Play the first result
+          // But still play the first result from the primary search
           playTrack(results[0]);
         } else {
           toast({
             title: "No results",
-            description: `Could not find "${cleanName}" on Spotify`,
+            description: `Could not find "${cleanName}" by ${cleanArtist} on Spotify`,
             variant: "destructive",
           });
         }
