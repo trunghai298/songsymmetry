@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.songsymmetry.weekly-import</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/trunghai/personal/songsymmetry/src/scripts/weekly-import.sh</string>
+    </array>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key>
+        <integer>1</integer>
+        <key>Hour</key>
+        <integer>3</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+    <key>StandardErrorPath</key>
+    <string>/Users/trunghai/personal/songsymmetry/logs/weekly-import-error.log</string>
+    <key>StandardOutPath</key>
+    <string>/Users/trunghai/personal/songsymmetry/logs/weekly-import-output.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/Users/trunghai/.nvm/versions/node/current/bin</string>
+        <key>NODE_ENV</key>
+        <string>production</string>
+    </dict>
+    <key>WorkingDirectory</key>
+    <string>/Users/trunghai/personal/songsymmetry</string>
+</dict>
+</plist>
