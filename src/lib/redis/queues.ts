@@ -144,25 +144,37 @@ export async function scheduleWeeklyUpdate(): Promise<string | null> {
  * @returns Promise<string | null> Job ID if successful
  */
 export async function scheduleDailyUpdate(): Promise<string | null> {
+  console.log('Entry: scheduleDailyUpdate()');
+  
   // Ensure queue is initialized
   if (!songUpdateQueue) {
+    console.log('Queue not initialized, attempting to initialize...');
     const initialized = await initializeQueues();
-    if (!initialized) return null;
+    if (!initialized) {
+      console.log('Failed to initialize queue, returning null');
+      return null;
+    }
+    console.log('Queue initialized successfully');
+  } else {
+    console.log('Queue already initialized');
   }
 
   try {
-    // Schedule a non-repeating job first instead
-    // We'll create a one-time job for now (to test)
-    const job = await songUpdateQueue!.add({ 
+    // Just basic job with no options for now
+    console.log('Adding job to queue...');
+    const job = await songUpdateQueue!.add('daily-update-simple', { 
       type: 'update-daily',
-      date: new Date().toISOString() 
+      date: new Date().toISOString(),
+      simpleTest: true
     });
     
-    console.log(`Scheduled immediate daily update, job: ${job.id}`);
+    console.log(`Successfully scheduled daily update with job ID: ${job.id}`);
+    console.log(`Job data: ${JSON.stringify(job.data)}`);
     return String(job.id);
   } catch (error) {
-    console.error('Failed to schedule daily update job:', error);
-    return null;
+    console.error('Exception in scheduleDailyUpdate:', error);
+    // Rethrow to let caller handle it
+    throw error;
   }
 }
 
