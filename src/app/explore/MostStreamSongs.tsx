@@ -22,10 +22,14 @@ function MostStreamSongs({
   songs,
   filters,
   setFilters,
+  onApplyFilters,
+  isLoading = false,
 }: {
   songs: MostStreamedSong[];
   filters: SongFilters;
-  setFilters: (filters: SongFilters) => void;
+  setFilters: (filters: SongFilters | ((prev: SongFilters) => SongFilters)) => void;
+  onApplyFilters: () => void;
+  isLoading?: boolean;
 }) {
   const [openFilter, setOpenFilter] = useState(false);
   const [searchingTrack, setSearchingTrack] = useState<string | null>(null);
@@ -109,7 +113,7 @@ function MostStreamSongs({
           if (primaryIds.has(track.id)) return false;
           
           // Check if there's a track with same name and artist (might be different version)
-          const signature = `${track.name.toLowerCase()}:${track.artists[0].name.toLowerCase()}`;
+          const signature = `${track.name?.toLowerCase() || ''}:${track.artists[0]?.name?.toLowerCase() || ''}`;
           if (trackSignatures.has(signature)) return false;
           
           // Track is unique, add its signature to the set for future checks
@@ -243,7 +247,7 @@ function MostStreamSongs({
           
           // Also track name+artist combinations to catch duplicates with different IDs
           const trackSignatures = new Set(
-            primaryResults.map(track => `${track.name.toLowerCase()}:${track.artists[0].name.toLowerCase()}`)
+            primaryResults.map(track => `${track.name?.toLowerCase() || ''}:${track.artists[0]?.name?.toLowerCase() || ''}`)
           );
           
           const secondaryResults = (artistResults || [])
@@ -252,7 +256,7 @@ function MostStreamSongs({
               if (primaryIds.has(track.id)) return false;
               
               // Check if there's a track with same name and artist (might be different version)
-              const signature = `${track.name.toLowerCase()}:${track.artists[0].name.toLowerCase()}`;
+              const signature = `${track.name?.toLowerCase() || ''}:${track.artists[0]?.name?.toLowerCase() || ''}`;
               if (trackSignatures.has(signature)) return false;
               
               // Track is unique, add its signature to the set for future checks
@@ -328,89 +332,138 @@ function MostStreamSongs({
       </div>
       {openFilter && (
         <div className="w-full flex flex-row space-x-2 transition-all duration-300">
-          <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            <Input
-              className="user-select-none"
-              type="text"
-              placeholder="Search by name"
-              value={filters.name}
-              onChange={(e) => {
-                const name = e.target.value;
-                setFilters({
-                  ...filters,
-                  name: name === "" ? undefined : e.target.value,
-                });
-              }}
-            />
-            <Input
-              type="text"
-              placeholder="Search by artist, comma separated"
-              value={filters.artist}
-              onChange={(e) => {
-                const names = e.target.value;
-                setFilters({
-                  ...filters,
-                  artist: names === "" ? undefined : e.target.value,
-                });
-              }}
-            />
-            <Input
-              type="text"
-              placeholder="Search by genre, comma separated"
-              value={filters.genre}
-              onChange={(e) => {
-                const genre = e.target.value;
-                setFilters({
-                  ...filters,
-                  genre:
-                    genre === "" ? undefined : Array.from(genre.split(",")),
-                });
-              }}
-            />
-            <Input
-              type="text"
-              placeholder="Search by year"
-              value={filters.year}
-              onChange={(e) => {
-                const year = e.target.value;
-                setFilters({
-                  ...filters,
-                  year: year === "" ? undefined : year,
-                });
-              }}
-            />
-            <Input
-              type="text"
-              placeholder="Search by language, comma separated"
-              value={filters.language}
-              onChange={(e) => {
-                const language = e.target.value;
-                setFilters({
-                  ...filters,
-                  language:
-                    language === ""
-                      ? undefined
-                      : Array.from(language.split(",")),
-                });
-              }}
-            />
-            <Input
-              type="number"
-              placeholder="Number of songs"
-              value={filters.limit}
-              onChange={(e) =>
-                setFilters({
-                  ...filters,
-                  limit: Number(e.target.value),
-                })
-              }
-            />
-          </div>
+          <form 
+            className="w-full" 
+            onSubmit={(e) => {
+              e.preventDefault();
+              onApplyFilters();
+            }}
+          >
+            <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="relative">
+              <Input
+                className="user-select-none pr-10"
+                type="text"
+                placeholder="Search by name"
+                value={filters.name || ""}
+                onChange={(e) => {
+                  const name = e.target.value;
+                  // Just update local state but don't trigger filtering yet
+                  setFilters((prev) => ({
+                    ...prev,
+                    name: name === "" ? undefined : name,
+                  }));
+                }}
+              />
+            </div>
+            <div className="relative">
+              <Input
+                className="pr-10"
+                type="text"
+                placeholder="Search by artist, comma separated"
+                value={filters.artist || ""}
+                onChange={(e) => {
+                  const names = e.target.value;
+                  setFilters((prev) => ({
+                    ...prev,
+                    artist: names === "" ? undefined : names,
+                  }));
+                }}
+              />
+            </div>
+            <div className="relative">
+              <Input
+                className="pr-10"
+                type="text"
+                placeholder="Search by genre, comma separated"
+                value={filters.genre ? filters.genre.join(",") : ""}
+                onChange={(e) => {
+                  const genre = e.target.value;
+                  setFilters((prev) => ({
+                    ...prev,
+                    genre:
+                      genre === "" ? undefined : Array.from(genre.split(",")),
+                  }));
+                }}
+              />
+            </div>
+            <div className="relative">
+              <Input
+                className="pr-10"
+                type="text"
+                placeholder="Search by year"
+                value={filters.year || ""}
+                onChange={(e) => {
+                  const year = e.target.value;
+                  setFilters((prev) => ({
+                    ...prev,
+                    year: year === "" ? undefined : year,
+                  }));
+                }}
+              />
+            </div>
+            <div className="relative">
+              <Input
+                className="pr-10"
+                type="text"
+                placeholder="Search by language, comma separated"
+                value={filters.language ? filters.language.join(",") : ""}
+                onChange={(e) => {
+                  const language = e.target.value;
+                  setFilters((prev) => ({
+                    ...prev,
+                    language:
+                      language === ""
+                        ? undefined
+                        : Array.from(language.split(",")),
+                  }));
+                }}
+              />
+            </div>
+            <div className="flex space-x-2">
+              <Input
+                className="pr-10"
+                type="number"
+                placeholder="Number of songs"
+                value={filters.limit || ""}
+                onChange={(e) => {
+                  const limit = e.target.value;
+                  setFilters((prev) => ({
+                    ...prev,
+                    limit: limit === "" ? undefined : Number(limit),
+                  }));
+                }}
+              />
+              <Button 
+                className="bg-green-600 hover:bg-green-700 text-white"
+                onClick={onApplyFilters}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                    Searching...
+                  </>
+                ) : (
+                  'Search'
+                )}
+              </Button>
+            </div>
+            </div>
+          </form>
         </div>
       )}
       <div className="flex flex-row space-x-2">
-        <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-          {map(songs, (track, index) => (
+        {isLoading ? (
+          <div className="w-full flex items-center justify-center mt-12 mb-12">
+            <div className="flex flex-col items-center">
+              <div className="h-12 w-12 animate-spin rounded-full border-4 border-green-500 border-t-transparent"></div>
+              <p className="text-white mt-4">Loading songs...</p>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+            {map(songs, (track, index) => (
             <div
               className={`
             relative
@@ -525,7 +578,8 @@ function MostStreamSongs({
               </div>
             </div>
           ))}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Results Dialog */}

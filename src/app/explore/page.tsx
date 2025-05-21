@@ -27,29 +27,52 @@ const WelcomeSection = () => {
 };
 
 function Explore() {
-  const [filters, setFilters] = useState<SongFilters>({
+  // Split filters into state and applied filters
+  const [filterState, setFilterState] = useState<SongFilters>({
+    limit: 20,
+    year: "2024",
+  });
+  const [appliedFilters, setAppliedFilters] = useState<SongFilters>({
     limit: 20,
     year: "2024",
   });
   const [topSongs, setTopSongs] = useState<MostStreamedSong[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const fetchTopSongs = debounce(async () => {
-    const data = await getMostStreamedSongs(filters);
-    setTopSongs(data);
-  }, 1000);
+  // Non-debounced fetch function - will only be called when search button is clicked
+  const fetchTopSongs = async (filters: SongFilters) => {
+    setIsLoading(true);
+    try {
+      const data = await getMostStreamedSongs(filters);
+      setTopSongs(data);
+    } catch (error) {
+      console.error("Error fetching songs:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  // Apply the filters when search button is clicked
+  const handleApplyFilters = () => {
+    console.log("Applying filters:", filterState);
+    setAppliedFilters(filterState);
+  };
+
+  // Only fetch when applied filters change (when search button is clicked)
   useEffect(() => {
-    console.log("Fetching top songs", filters);
-    fetchTopSongs();
-  }, [filters]);
+    console.log("Fetching top songs with applied filters", appliedFilters);
+    fetchTopSongs(appliedFilters);
+  }, [appliedFilters]);
 
   return (
     <Container>
       <WelcomeSection />
       <MostStreamSongs
         songs={topSongs}
-        filters={filters}
-        setFilters={setFilters}
+        filters={filterState}
+        setFilters={setFilterState}
+        onApplyFilters={handleApplyFilters}
+        isLoading={isLoading}
       />
     </Container>
   );
