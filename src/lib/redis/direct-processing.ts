@@ -12,7 +12,7 @@ export async function processDailyUpdate(): Promise<any> {
   
   try {
     // Import the fetch script directly
-    const { fetchChartmastersData } = await import('../scripts/fetch-chartmasters');
+    const { fetchChartmastersData } = await import('../../scripts/fetch-chartmasters');
     
     // Get the current year
     const currentYear = new Date().getFullYear().toString();
