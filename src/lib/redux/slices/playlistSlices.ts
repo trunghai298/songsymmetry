@@ -1,5 +1,4 @@
-import { PayloadAction, createSlice } from "@reduxjs/toolkit";
-import { AppDispatch } from "../store";
+import { PayloadAction, createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { PlaylistedTrack, SimplifiedPlaylist } from "@spotify/web-api-ts-sdk";
 import { map } from "lodash";
 import sdk from "../../spotify-sdk/ClientInstance";
@@ -8,33 +7,24 @@ type PlaylistTracks = {
   tracks: PlaylistedTrack[];
 } & SimplifiedPlaylist;
 
-type IPlaylist = {
+interface IPlaylist {
   playlist: PlaylistTracks[] | undefined;
+  status: 'idle' | 'loading' | 'succeeded' | 'failed';
+  error: string | null;
+}
+
+const initialState: IPlaylist = {
+  playlist: undefined,
+  status: 'idle',
+  error: null
 };
 
-export const playlistSlice = createSlice({
-  name: "playlist",
-  initialState: {
-    playlist: undefined,
-  } as IPlaylist,
-  reducers: {
-    setPlaylist: (
-      state,
-      action: PayloadAction<{ playlist: PlaylistTracks[] | undefined }>
-    ) => {
-      state.playlist = action.payload.playlist;
-    },
-  },
-});
-
-// Action creators are generated for each case reducer function
-const { setPlaylist: setPlaylistAction } = playlistSlice.actions;
-
-export const setPlaylist =
-  (playlist: SimplifiedPlaylist[] | undefined) =>
-  async (dispatch: AppDispatch) => {
+// Create an async thunk for fetching playlist data
+export const fetchPlaylistsWithTracks = createAsyncThunk(
+  'playlist/fetchPlaylistsWithTracks',
+  async (playlists: SimplifiedPlaylist[]) => {
     const playlistData = await Promise.all(
-      map(playlist, async (item) => {
+      map(playlists, async (item) => {
         const playListTracks = await sdk.playlists.getPlaylistItems(item.id);
         return {
           ...item,
@@ -42,7 +32,52 @@ export const setPlaylist =
         };
       })
     );
-    dispatch(setPlaylistAction({ playlist: playlistData as PlaylistTracks[] }));
-  };
+    return playlistData as PlaylistTracks[];
+  }
+);
+
+export const playlistSlice = createSlice({
+  name: "playlist",
+  initialState,
+  reducers: {
+    setPlaylist: (
+      state,
+      action: PayloadAction<PlaylistTracks[] | undefined>
+    ) => {
+      state.playlist = action.payload;
+    },
+    clearPlaylists: (state) => {
+      state.playlist = undefined;
+      state.status = 'idle';
+      state.error = null;
+    }
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchPlaylistsWithTracks.pending, (state) => {
+        state.status = 'loading';
+      })
+      .addCase(fetchPlaylistsWithTracks.fulfilled, (state, action) => {
+        state.status = 'succeeded';
+        state.playlist = action.payload;
+      })
+      .addCase(fetchPlaylistsWithTracks.rejected, (state, action) => {
+        state.status = 'failed';
+        state.error = action.error.message || 'Failed to fetch playlists';
+      });
+  }
+});
+
+export const { setPlaylist, clearPlaylists } = playlistSlice.actions;
+
+// For backward compatibility
+export const fetchPlaylists = (
+  playlists: SimplifiedPlaylist[] | undefined
+) => {
+  if (!playlists) {
+    return setPlaylist(undefined);
+  }
+  return fetchPlaylistsWithTracks(playlists);
+};
 
 export default playlistSlice.reducer;

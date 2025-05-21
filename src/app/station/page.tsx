@@ -24,7 +24,7 @@ export default function Page() {
               ></div>
               <div className="flex flex-col gap-3 mt-1">
                 <h2 className="text-2xl font-bold text-white">
-                  Someone's Station
+                  {"Someone's Station"}
                 </h2>
                 <p className="text-white text-md">
                   Join the station and listen to the music
@@ -68,7 +68,7 @@ export default function Page() {
               ></div>
               <div className="flex flex-col gap-3 mt-1">
                 <h2 className="text-2xl font-bold text-white">
-                  Someone's Station
+                  {"Someone's Station"}
                 </h2>
                 <p className="text-white text-md">
                   Join the station and listen to the music
@@ -110,7 +110,7 @@ export default function Page() {
               ></div>
               <div className="flex flex-col gap-3 mt-1">
                 <h2 className="text-2xl font-bold text-white">
-                  Someone's Station
+                  {"Someone's Station"}
                 </h2>
                 <p className="text-white text-md">
                   Join the station and listen to the music
@@ -151,7 +151,7 @@ export default function Page() {
               ></div>
               <div className="flex flex-col gap-3 mt-1">
                 <h2 className="text-2xl font-bold text-white">
-                  Someone's Station
+                  {"Someone's Station"}
                 </h2>
                 <p className="text-white text-md">
                   Join the station and listen to the music

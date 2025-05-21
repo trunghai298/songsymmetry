@@ -68,16 +68,13 @@ module.exports = {
         "spotify-gray-light": "#B3B3B3",
         "spotify-gray-lighter": "#E5E5E5",
         "spotify-gray-lightest": "#F5F5F5",
-        "min-blue":
-          "linear-gradient(90deg, #417B94 3.82%, rgba(74, 163, 199, 0.71) 95.66%)",
-        "shadow-gray": "rgba(0, 0, 0, 0.2) 0px 4px 12px 0px",
         "shadow-gray-light": "#ffffff33",
         chart: {
-          "1": "hsl(var(--chart-1))",
-          "2": "hsl(var(--chart-2))",
-          "3": "hsl(var(--chart-3))",
-          "4": "hsl(var(--chart-4))",
-          "5": "hsl(var(--chart-5))",
+          1: "hsl(var(--chart-1))",
+          2: "hsl(var(--chart-2))",
+          3: "hsl(var(--chart-3))",
+          4: "hsl(var(--chart-4))",
+          5: "hsl(var(--chart-5))",
         },
       },
       fontSize: {
@@ -87,41 +84,16 @@ module.exports = {
       },
       borderRadius: {
         "4xl": "2rem",
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        lg: "0.5rem",
+        md: "calc(0.5rem - 2px)",
+        sm: "calc(0.5rem - 4px)",
       },
       fontFamily: {
         receipt:
           "'receipt', 'Anonymous Pro', 'Courier New', Courier, monospace;'",
       },
-      keyframes: {
-        "accordion-down": {
-          from: {
-            height: 0,
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
-        },
-        "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
-          },
-          to: {
-            height: 0,
-          },
-        },
-      },
-      animation: {
-        "accordion-down": "accordion-down 0.2s ease-out",
-        "accordion-up": "accordion-up 0.2s ease-out",
-      },
       zIndex: {
         max: "9999",
-      },
-      lineClamp: {
-        "7": "7",
       },
     },
   },

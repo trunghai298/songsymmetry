@@ -1,6 +1,5 @@
 import { PayloadAction, createSlice } from "@reduxjs/toolkit";
-import { AppDispatch } from "../store";
-import { Album, PlaybackState, Playlist, Track } from "@spotify/web-api-ts-sdk";
+import { Album, Playlist, Track } from "@spotify/web-api-ts-sdk";
 
 interface IPlayer {
   state: "open" | "closed";
@@ -11,94 +10,66 @@ interface IPlayer {
   currentTrack: Track | undefined;
 }
 
+const initialState: IPlayer = {
+  state: "closed",
+  track: undefined,
+  type: "single",
+  size: "compact",
+  src: "",
+  currentTrack: undefined,
+};
+
 export const playerSlice = createSlice({
   name: "player",
-  initialState: {
-    state: "closed",
-    track: undefined,
-    type: "single",
-    size: "compact",
-  } as IPlayer,
+  initialState,
   reducers: {
-    setCurrentTrack: (
-      state,
-      action: PayloadAction<{ currentTrack: Track | undefined }>
-    ) => {
-      state.currentTrack = action.payload.currentTrack;
+    setCurrentTrack: (state, action: PayloadAction<Track>) => {
+      state.currentTrack = action.payload;
     },
-    setTrack: (state, action: PayloadAction<{ track: Track | undefined }>) => {
+    setTrack: (state, action: PayloadAction<Track | undefined>) => {
       state.state = "open";
-      state.track = action.payload.track;
+      state.track = action.payload;
       state.size = "compact";
       state.type = "single";
-      state.src = `https://open.spotify.com/embed/track/${action.payload.track?.id}?utm_source=generator`;
+      state.src = action.payload 
+        ? `https://open.spotify.com/embed/track/${action.payload.id}?utm_source=generator`
+        : "";
     },
-    setPlaylist: (
-      state,
-      action: PayloadAction<{ playlist: Playlist | undefined }>
-    ) => {
+    setPlaylist: (state, action: PayloadAction<Playlist | undefined>) => {
       state.state = "open";
       state.track = undefined;
       state.size = "full";
       state.type = "playlist";
-      state.src = `https://open.spotify.com/embed/playlist/${action.payload.playlist?.id}?utm_source=generator`;
+      state.src = action.payload
+        ? `https://open.spotify.com/embed/playlist/${action.payload.id}?utm_source=generator`
+        : "";
     },
-    setAlbum: (state, action: PayloadAction<{ album: Album | undefined }>) => {
+    setAlbum: (state, action: PayloadAction<Album | undefined>) => {
       state.state = "open";
       state.track = undefined;
       state.size = "full";
       state.type = "playlist";
-      state.src = `https://open.spotify.com/embed/album/${action.payload.album?.id}?utm_source=generator`;
+      state.src = action.payload
+        ? `https://open.spotify.com/embed/album/${action.payload.id}?utm_source=generator`
+        : "";
     },
     closePlayer: (state) => {
       state.state = "closed";
     },
     expandPlayer: (state) => {
-      if (state.size === "compact") {
-        state.size = "full";
-      } else {
-        state.size = "compact";
-      }
+      state.size = state.size === "compact" ? "full" : "compact";
     },
   },
 });
 
-// Action creators are generated for each case reducer function
-const {
-  setTrack: setTrackAction,
-  setPlaylist: setPlaylistAction,
-  setAlbum: setAlbumAction,
-  closePlayer: closePlayerAction,
-  expandPlayer: expandPlayerAction,
-  setCurrentTrack: setCurrentTrackAction,
+// Export actions directly
+export const {
+  setTrack,
+  setPlaylist,
+  setAlbum,
+  closePlayer,
+  expandPlayer,
+  setCurrentTrack,
 } = playerSlice.actions;
-
-export const setTrack =
-  (track: Track | undefined) => async (dispatch: AppDispatch) => {
-    dispatch(setTrackAction({ track }));
-  };
-
-export const setPlaylist =
-  (playlist: Playlist | undefined) => async (dispatch: AppDispatch) => {
-    dispatch(setPlaylistAction({ playlist }));
-  };
-
-export const setAlbum =
-  (album: Album | undefined) => async (dispatch: AppDispatch) => {
-    dispatch(setAlbumAction({ album }));
-  };
-
-export const closePlayer = () => async (dispatch: AppDispatch) => {
-  dispatch(closePlayerAction());
-};
-
-export const expandPlayer = () => async (dispatch: AppDispatch) => {
-  dispatch(expandPlayerAction());
-};
-
-export const setCurrentTrack =
-  (currentTrack: Track) => async (dispatch: AppDispatch) => {
-    dispatch(setCurrentTrackAction({ currentTrack }));
-  };
 
 export default playerSlice.reducer;

@@ -1,15 +1,16 @@
-import { PayloadAction, createSlice } from "@reduxjs/toolkit";
-import { AppDispatch } from "../store";
+import { createSlice } from "@reduxjs/toolkit";
 
-type ISubscribe = {
+interface ISubscribe {
   openDialog: boolean;
+}
+
+const initialState: ISubscribe = {
+  openDialog: false,
 };
 
 export const subscribeSlice = createSlice({
   name: "subscribe",
-  initialState: {
-    openDialog: false,
-  } as ISubscribe,
+  initialState,
   reducers: {
     openSubscribeDialog: (state) => {
       state.openDialog = true;
@@ -20,15 +21,11 @@ export const subscribeSlice = createSlice({
   },
 });
 
-// Action creators are generated for each case reducer function
-const { openSubscribeDialog, closeSubscribeDialog } = subscribeSlice.actions;
+// Export actions directly
+export const { openSubscribeDialog, closeSubscribeDialog } = subscribeSlice.actions;
 
-export const setOpenSubscribeDialog = () => async (dispatch: AppDispatch) => {
-  dispatch(openSubscribeDialog());
-};
-
-export const setCloseSubscribeDialog = () => async (dispatch: AppDispatch) => {
-  dispatch(closeSubscribeDialog());
-};
+// For consumer convenience, also export these as function names
+export const setOpenSubscribeDialog = openSubscribeDialog;
+export const setCloseSubscribeDialog = closeSubscribeDialog;
 
 export default subscribeSlice.reducer;

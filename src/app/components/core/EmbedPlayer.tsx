@@ -1,18 +1,19 @@
 "use client";
-import React, { FC, HTMLAttributes, useEffect, useRef } from "react";
-import { useAppDispatch, useAppSelector } from "../../../lib/redux/hooks";
-import {
-  closePlayer,
-  expandPlayer,
-} from "../../../lib/redux/slices/playerSlices";
+import React, { FC, HTMLAttributes, useEffect, useRef, useState } from "react";
+import { usePlayer } from "@/hooks/usePlayer";
 
 export const EmbedPlayer: FC<HTMLAttributes<HTMLDivElement>> = () => {
-  const dispatch = useAppDispatch();
-  const { track, type, size, src, state } = useAppSelector(
-    (state) => state.player
-  );
-  const [minimized, setMinimized] = React.useState(false);
-  const [dragging, setDragging] = React.useState(false);
+  const { 
+    isOpen, 
+    size, 
+    track, 
+    embedSrc, 
+    close, 
+    toggleSize
+  } = usePlayer();
+  
+  const [minimized, setMinimized] = useState(false);
+  const [dragging, setDragging] = useState(false);
 
   const ref = useRef<HTMLDivElement>(null);
 
@@ -20,11 +21,14 @@ export const EmbedPlayer: FC<HTMLAttributes<HTMLDivElement>> = () => {
     let x = 0;
     let y = 0;
     const ele = ref.current;
-    if (!ele || state === "closed") return;
+    if (!ele || !isOpen) return;
+    
     if (track) {
       document.title = `🎶 ${track.name} - ${track.artists[0].name} 🎶`;
     }
+    
     setMinimized(false);
+    
     const mouseDownHandler = function (e: any) {
       setDragging(true);
       x = e.clientX;
@@ -67,7 +71,7 @@ export const EmbedPlayer: FC<HTMLAttributes<HTMLDivElement>> = () => {
       ele.removeEventListener("touchend", mouseUpHandler);
       ele.removeEventListener("touchmove", mouseDownHandler);
     };
-  }, [track, state]);
+  }, [track, isOpen]);
 
   useEffect(() => {
     if (!dragging) {
@@ -101,7 +105,7 @@ export const EmbedPlayer: FC<HTMLAttributes<HTMLDivElement>> = () => {
     }
   }, [dragging, size]);
 
-  if (state === "closed") return null;
+  if (!isOpen) return null;
 
   return (
     <div
@@ -128,7 +132,7 @@ export const EmbedPlayer: FC<HTMLAttributes<HTMLDivElement>> = () => {
                 ? "bi-aspect-ratio"
                 : "bi-arrows-angle-contract"
             } font-bold cursor-pointer`}
-            onClick={() => dispatch(expandPlayer())}
+            onClick={toggleSize}
           />
         )}
         <i
@@ -142,11 +146,11 @@ export const EmbedPlayer: FC<HTMLAttributes<HTMLDivElement>> = () => {
         <i className="select-none bi bi-arrows-move text-gray-300 text-md cursor-pointer" />
         <i
           className="bi bi-x-lg text-gray-300 text-lg cursor-pointer "
-          onClick={() => dispatch(closePlayer())}
+          onClick={close}
         />
       </div>
       <iframe
-        src={src}
+        src={embedSrc}
         width="100%"
         height={size === "compact" || minimized ? 80 : 352}
         frameBorder="0"
