@@ -9,7 +9,26 @@ export const Header = () => {
   const router = useRouter();
   const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+  const [currentPath, setCurrentPath] = React.useState("");
   const session = useSession();
+  
+  // Get current path for active state
+  React.useEffect(() => {
+    // Initial path detection
+    setCurrentPath(window.location.pathname);
+    
+    // Update path when it changes
+    const handleRouteChange = () => {
+      setCurrentPath(window.location.pathname);
+    };
+    
+    // Listen for navigation events
+    window.addEventListener('popstate', handleRouteChange);
+    
+    return () => {
+      window.removeEventListener('popstate', handleRouteChange);
+    };
+  }, []);
 
   if (session.status === "unauthenticated") return null;
 
@@ -17,8 +36,11 @@ export const Header = () => {
     <header className="sticky -top-[1px] w-full p-4 sm:px-10 bg-gray-900 z-50 flex justify-between items-center">
       <nav className="flex flex-wrap w-full items-center justify-between sm:space-x-4">
         <div
-          className="flex gap-x-1 items-center"
-          onClick={() => router.push("/")}
+          className="flex gap-x-1 items-center cursor-pointer"
+          onClick={() => {
+            router.push("/");
+            setCurrentPath("/");
+          }}
         >
           <img src={Logo.src} alt="logo" width={30} height={30} />
         </div>
@@ -41,22 +63,41 @@ export const Header = () => {
         >
           <ul className="pt-4 text-base text-white flex flex-col sm:flex-row m-0 justify-between items-center space-y-2 sm:space-y-0 sm:space-x-4 md:pt-0">
             <a
-              className="text-lg font-medium hover:text-spotify-green hover:underline cursor-pointer"
-              onClick={() => router.push("/wrapped")}
+              className={`text-lg font-medium hover:text-spotify-green hover:underline cursor-pointer ${currentPath === "/wrapped" ? "text-spotify-green underline" : ""}`}
+              onClick={() => {
+                router.push("/wrapped");
+                setCurrentPath("/wrapped");
+              }}
             >
               Wrapped
             </a>
             <a
-              className="text-lg font-medium hover:text-spotify-green hover:underline cursor-pointer"
-              onClick={() => router.push("/receipt")}
+              className={`text-lg font-medium hover:text-spotify-green hover:underline cursor-pointer ${currentPath === "/receipt" ? "text-spotify-green underline" : ""}`}
+              onClick={() => {
+                router.push("/receipt");
+                setCurrentPath("/receipt");
+              }}
             >
               Receiptify
             </a>
             <a
-              className="text-lg font-medium hover:text-spotify-green hover:underline cursor-pointer"
-              onClick={() => router.push("/explore")}
+              className={`text-lg font-medium hover:text-spotify-green hover:underline cursor-pointer ${currentPath === "/explore" ? "text-spotify-green underline" : ""}`}
+              onClick={() => {
+                router.push("/explore");
+                setCurrentPath("/explore");
+              }}
             >
               Explore
+            </a>
+            <a
+              className={`text-lg font-medium hover:text-spotify-green hover:underline cursor-pointer flex items-center gap-1 ${currentPath === "/station" ? "text-spotify-green underline" : ""}`}
+              onClick={() => {
+                router.push("/station");
+                setCurrentPath("/station");
+              }}
+            >
+              <i className="bi bi-broadcast text-lg"></i>
+              Station
             </a>
             <div className="hidden sm:inline-block relative cursor-pointer min-w-[100px]">
               <div

@@ -14,6 +14,8 @@ const nextConfig = {
       },
     ],
   },
+  // Enable output as standalone for Fly.io deployment
+  output: 'standalone',
 };
 
 module.exports = nextConfig;
