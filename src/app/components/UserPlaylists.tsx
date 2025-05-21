@@ -8,8 +8,7 @@ import { signOut } from "next-auth/react";
 import sdk from "../../lib/spotify-sdk/ClientInstance";
 import { map } from "lodash";
 import { Loader } from "./core/Loader";
-import Image from "next/image";
-import { setPlaylist } from "../../lib/redux/slices/playlistSlices";
+import { fetchPlaylistsWithTracks } from "../../lib/redux/slices/playlistSlices";
 
 function UserPlaylists() {
   const [playlists, setPlaylists] = useState<Page<SimplifiedPlaylist>>();
@@ -24,12 +23,15 @@ function UserPlaylists() {
         const wrappedPlaylist = results.items.filter((p) =>
           p.name.includes("Top Songs")
         );
-        dispatch(setPlaylist(wrappedPlaylist));
+        // Use fetchPlaylistsWithTracks to properly load the playlist tracks
+        if (wrappedPlaylist.length > 0) {
+          dispatch(fetchPlaylistsWithTracks(wrappedPlaylist));
+        }
       } catch (error: any) {
         signOut();
       }
     })();
-  }, []);
+  }, [dispatch]);
 
   if (!playlists) {
     return <Loader />;
@@ -49,7 +51,7 @@ function UserPlaylists() {
           >
             <div className="relative">
               <img
-                src={playlist.images[0].url}
+                src={playlist.images[0]?.url}
                 alt=""
                 className="rounded-md aspect-square object-cover"
                 width={200}

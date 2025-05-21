@@ -3,7 +3,7 @@ import { PlaylistedTrack, SimplifiedPlaylist } from "@spotify/web-api-ts-sdk";
 import { map } from "lodash";
 import sdk from "../../spotify-sdk/ClientInstance";
 
-type PlaylistTracks = {
+export type PlaylistTracks = {
   tracks: PlaylistedTrack[];
 } & SimplifiedPlaylist;
 
@@ -42,9 +42,23 @@ export const playlistSlice = createSlice({
   reducers: {
     setPlaylist: (
       state,
-      action: PayloadAction<PlaylistTracks[] | undefined>
+      action: PayloadAction<PlaylistTracks[] | SimplifiedPlaylist[] | undefined>
     ) => {
-      state.playlist = action.payload;
+      if (action.payload && action.payload.length > 0) {
+        // Check if the payload already has the 'tracks' property
+        const hasTracksProp = 'tracks' in action.payload[0];
+        
+        if (hasTracksProp) {
+          // It's already PlaylistTracks[]
+          state.playlist = action.payload as PlaylistTracks[];
+        } else {
+          // It's SimplifiedPlaylist[], we'll set undefined temporarily
+          // and rely on fetchPlaylistsWithTracks to populate it
+          state.playlist = undefined;
+        }
+      } else {
+        state.playlist = undefined;
+      }
     },
     clearPlaylists: (state) => {
       state.playlist = undefined;
@@ -74,7 +88,7 @@ export const { setPlaylist, clearPlaylists } = playlistSlice.actions;
 export const fetchPlaylists = (
   playlists: SimplifiedPlaylist[] | undefined
 ) => {
-  if (!playlists) {
+  if (!playlists || playlists.length === 0) {
     return setPlaylist(undefined);
   }
   return fetchPlaylistsWithTracks(playlists);
