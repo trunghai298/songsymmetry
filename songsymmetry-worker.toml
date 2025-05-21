@@ -1,0 +1,18 @@
+# fly.toml app configuration file for the worker process
+app = "songsymmetry-worker"
+primary_region = "sin"
+
+[build]
+  dockerfile = "Dockerfile.worker"
+
+[env]
+  NODE_ENV = "production"
+  # Redis URL will be set from GitHub secrets during deployment
+
+# No HTTP service for the worker
+# This is a background process only
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1

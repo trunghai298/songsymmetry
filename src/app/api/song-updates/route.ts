@@ -1,0 +1,111 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { isRedisAvailable } from '@/lib/redis';
+import { scheduleFullUpdate, scheduleYearUpdate, scheduleWeeklyUpdate } from '@/lib/redis/queues';
+
+// API route handler for song updates
+export async function GET(request: NextRequest) {
+  try {
+    // Check if Redis is available
+    const redisAvailable = await isRedisAvailable();
+    
+    return NextResponse.json({ 
+      status: 'ok',
+      redisAvailable,
+      message: redisAvailable 
+        ? 'Song update service is available' 
+        : 'Song update service is not available (Upstash Redis connection failed)'
+    });
+  } catch (error) {
+    console.error('Error in song-updates GET handler:', error);
+    return NextResponse.json(
+      { status: 'error', message: 'Failed to check song update service status' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    // Parse the request body
+    const body = await request.json();
+    const { action, year } = body;
+    
+    // Check if Redis is available
+    const redisAvailable = await isRedisAvailable();
+    if (!redisAvailable) {
+      return NextResponse.json(
+        { status: 'error', message: 'Upstash Redis is not available' },
+        { status: 503 }
+      );
+    }
+    
+    // Handle different actions
+    switch (action) {
+      case 'run-full-update': {
+        const jobId = await scheduleFullUpdate();
+        if (!jobId) {
+          return NextResponse.json(
+            { status: 'error', message: 'Failed to schedule full update' },
+            { status: 500 }
+          );
+        }
+        return NextResponse.json({ 
+          status: 'ok', 
+          message: 'Full update scheduled', 
+          jobId 
+        });
+      }
+      
+      case 'update-year': {
+        if (!year) {
+          return NextResponse.json(
+            { status: 'error', message: 'Year parameter is required' },
+            { status: 400 }
+          );
+        }
+        
+        const jobId = await scheduleYearUpdate(year);
+        if (!jobId) {
+          return NextResponse.json(
+            { status: 'error', message: `Failed to schedule update for year ${year}` },
+            { status: 500 }
+          );
+        }
+        
+        return NextResponse.json({ 
+          status: 'ok', 
+          message: `Update scheduled for year ${year}`, 
+          jobId 
+        });
+      }
+      
+      case 'schedule-weekly': {
+        const jobId = await scheduleWeeklyUpdate();
+        if (!jobId) {
+          return NextResponse.json(
+            { status: 'error', message: 'Failed to schedule weekly updates' },
+            { status: 500 }
+          );
+        }
+        
+        return NextResponse.json({ 
+          status: 'ok', 
+          message: 'Weekly updates scheduled', 
+          jobId 
+        });
+      }
+      
+      default:
+        return NextResponse.json(
+          { status: 'error', message: `Unknown action: ${action}` },
+          { status: 400 }
+        );
+    }
+  } catch (error) {
+    console.error('Error in song-updates POST handler:', error);
+    return NextResponse.json(
+      { status: 'error', message: 'Failed to process song update request' },
+      { status: 500 }
+    );
+  }
+}
