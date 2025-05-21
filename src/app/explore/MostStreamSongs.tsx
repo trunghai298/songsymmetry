@@ -89,12 +89,13 @@ function MostStreamSongs({
       console.log("Primary search (track+artist):", combinedSearchQuery);
       const combinedResults = await searchTrack(combinedSearchQuery);
       
-      // Second search: Artist name only (for more diverse results)
-      const artistSearchQuery = `artist:${cleanArtist}`;
-      console.log("Secondary search (artist only):", artistSearchQuery);
-      const artistResults = await searchTrack(artistSearchQuery);
+      // Second search: Track name only (for more diverse results from different artists)
+      // This shows different artists' interpretations of the same song title
+      const trackNameQuery = `track:${cleanName}`;
+      console.log("Secondary search (track name only):", trackNameQuery);
+      const trackNameResults = await searchTrack(trackNameQuery);
       
-      // Combine results, taking first 5 from combined search and up to 4 from artist search
+      // Combine results, taking first 5 from combined search and up to 4 from track name search
       // We need to filter duplicates more carefully, considering both track ID and name/artist
       const primaryResults = combinedResults?.slice(0, 5) || [];
       
@@ -103,11 +104,11 @@ function MostStreamSongs({
       
       // Also track name+artist combinations to catch duplicates that might have different IDs
       const trackSignatures = new Set(
-        primaryResults.map(track => `${track.name.toLowerCase()}:${track.artists[0].name.toLowerCase()}`)
+        primaryResults.map(track => `${track.name?.toLowerCase() || ''}:${track.artists[0]?.name?.toLowerCase() || ''}`)
       );
       
       // Filter secondary results to remove both exact ID duplicates and similar tracks
-      const secondaryResults = (artistResults || [])
+      const secondaryResults = (trackNameResults || [])
         .filter(track => {
           // Check if this track ID is already in primary results
           if (primaryIds.has(track.id)) return false;
@@ -235,9 +236,10 @@ function MostStreamSongs({
         const results = await searchTrack(searchQuery);
 
         if (results && results.length > 0) {
-          // Also do the secondary search for caching purposes
-          const artistSearchQuery = `artist:${cleanArtist}`;
-          const artistResults = await searchTrack(artistSearchQuery);
+          // Also do the secondary search for caching and variety
+          // Search by track name only to find different artists' interpretations
+          const trackNameQuery = `track:${cleanName}`;
+          const trackNameResults = await searchTrack(trackNameQuery);
           
           // Combine results as we do in handleSearchTrack
           const primaryResults = results.slice(0, 5);
@@ -250,7 +252,7 @@ function MostStreamSongs({
             primaryResults.map(track => `${track.name?.toLowerCase() || ''}:${track.artists[0]?.name?.toLowerCase() || ''}`)
           );
           
-          const secondaryResults = (artistResults || [])
+          const secondaryResults = (trackNameResults || [])
             .filter(track => {
               // Check if this track ID is already in primary results
               if (primaryIds.has(track.id)) return false;
