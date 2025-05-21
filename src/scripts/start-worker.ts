@@ -23,6 +23,7 @@ async function startWorker() {
     console.log('- Full update: POST /api/song-updates with {"action": "run-full-update"}');
     console.log('- Year update: POST /api/song-updates with {"action": "update-year", "year": "2025"}');
     console.log('- Weekly schedule: POST /api/song-updates with {"action": "schedule-weekly"}');
+    console.log('- Daily schedule: POST /api/song-updates with {"action": "schedule-daily"}');
 
     // Handle process termination
     process.on('SIGTERM', async () => {
