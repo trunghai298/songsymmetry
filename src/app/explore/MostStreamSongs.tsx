@@ -91,16 +91,31 @@ function MostStreamSongs({
       const artistResults = await searchTrack(artistSearchQuery);
       
       // Combine results, taking first 5 from combined search and up to 4 from artist search
-      // Filter out duplicates that might exist in both result sets based on track id
+      // We need to filter duplicates more carefully, considering both track ID and name/artist
       const primaryResults = combinedResults?.slice(0, 5) || [];
       
-      // Get the IDs from primary results to filter out duplicates
+      // Create a set of track IDs from primary results
       const primaryIds = new Set(primaryResults.map(track => track.id));
       
-      // Filter secondary results to remove duplicates from primary results
-      // and take only up to 4 additional tracks
+      // Also track name+artist combinations to catch duplicates that might have different IDs
+      const trackSignatures = new Set(
+        primaryResults.map(track => `${track.name.toLowerCase()}:${track.artists[0].name.toLowerCase()}`)
+      );
+      
+      // Filter secondary results to remove both exact ID duplicates and similar tracks
       const secondaryResults = (artistResults || [])
-        .filter(track => !primaryIds.has(track.id))
+        .filter(track => {
+          // Check if this track ID is already in primary results
+          if (primaryIds.has(track.id)) return false;
+          
+          // Check if there's a track with same name and artist (might be different version)
+          const signature = `${track.name.toLowerCase()}:${track.artists[0].name.toLowerCase()}`;
+          if (trackSignatures.has(signature)) return false;
+          
+          // Track is unique, add its signature to the set for future checks
+          trackSignatures.add(signature);
+          return true;
+        })
         .slice(0, 4);
       
       // Combine the results
@@ -222,10 +237,28 @@ function MostStreamSongs({
           
           // Combine results as we do in handleSearchTrack
           const primaryResults = results.slice(0, 5);
+          
+          // Use the improved duplicate detection logic
           const primaryIds = new Set(primaryResults.map(track => track.id));
           
+          // Also track name+artist combinations to catch duplicates with different IDs
+          const trackSignatures = new Set(
+            primaryResults.map(track => `${track.name.toLowerCase()}:${track.artists[0].name.toLowerCase()}`)
+          );
+          
           const secondaryResults = (artistResults || [])
-            .filter(track => !primaryIds.has(track.id))
+            .filter(track => {
+              // Check if this track ID is already in primary results
+              if (primaryIds.has(track.id)) return false;
+              
+              // Check if there's a track with same name and artist (might be different version)
+              const signature = `${track.name.toLowerCase()}:${track.artists[0].name.toLowerCase()}`;
+              if (trackSignatures.has(signature)) return false;
+              
+              // Track is unique, add its signature to the set for future checks
+              trackSignatures.add(signature);
+              return true;
+            })
             .slice(0, 4);
           
           const mergedResults = [...primaryResults, ...secondaryResults];
