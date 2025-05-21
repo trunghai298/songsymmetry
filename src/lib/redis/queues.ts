@@ -117,15 +117,16 @@ export async function scheduleWeeklyUpdate(): Promise<string | null> {
     nextMonday.setDate(now.getDate() + ((1 + 7 - now.getDay()) % 7)); // Next Monday
     nextMonday.setHours(3, 0, 0, 0); // 3:00 AM
 
+    // Create a repeatable job for weekly updates
     const job = await songUpdateQueue!.add(
       { 
         type: 'update-weekly',
         date: nextMonday.toISOString() 
       },
       { 
-        delay: nextMonday.getTime() - now.getTime(), // Delay until next Monday
         repeat: {
-          cron: '0 3 * * 1' // Every Monday at 3:00 AM (cron syntax)
+          cron: '0 3 * * 1', // Every Monday at 3:00 AM
+          tz: 'UTC' 
         }
       }
     );
@@ -156,15 +157,16 @@ export async function scheduleDailyUpdate(): Promise<string | null> {
     tomorrow.setDate(now.getDate() + 1);
     tomorrow.setHours(1, 0, 0, 0); // 1:00 AM
 
+    // Create a repeatable job without delay for daily updates
     const job = await songUpdateQueue!.add(
       { 
         type: 'update-daily',
         date: tomorrow.toISOString() 
       },
       { 
-        delay: tomorrow.getTime() - now.getTime(), // Delay until tomorrow
         repeat: {
-          cron: '0 1 * * *' // Every day at 1:00 AM (cron syntax)
+          cron: '0 1 * * *', // Every day at 1:00 AM
+          tz: 'UTC'
         }
       }
     );
