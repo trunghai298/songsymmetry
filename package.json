@@ -32,7 +32,8 @@
     "worker:start": "ts-node src/scripts/start-worker.ts",
     "worker:schedule:weekly": "curl -X POST http://localhost:3000/api/song-updates -H 'Content-Type: application/json' -d '{\"action\":\"schedule-weekly\"}'",
     "worker:update:all": "curl -X POST http://localhost:3000/api/song-updates -H 'Content-Type: application/json' -d '{\"action\":\"run-full-update\"}'",
-    "worker:update:year": "curl -X POST http://localhost:3000/api/song-updates -H 'Content-Type: application/json' -d '{\"action\":\"update-year\",\"year\":\"2025\"}'"
+    "worker:update:year": "curl -X POST http://localhost:3000/api/song-updates -H 'Content-Type: application/json' -d '{\"action\":\"update-year\",\"year\":\"2025\"}'",
+    "redis:test:specific": "node src/scripts/test-specific-redis.js"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.12.0",

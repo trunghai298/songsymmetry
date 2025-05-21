@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
     
     // Create a temporary connection to test Redis directly
     const redisUrl = process.env.REDIS_URL;
+    console.log('Trying to connect to Redis URL:', redisUrl);
     const redis = new Redis(redisUrl as string);
     
     try {
