@@ -343,7 +343,7 @@ function MostStreamSongs({
       )}
       <div className="flex flex-row space-x-2">
         <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-          {map(songs, (track) => (
+          {map(songs, (track, index) => (
             <div
               className={`
             relative
@@ -401,6 +401,11 @@ function MostStreamSongs({
               relative
             "
               >
+                {/* Rank number floating above the card at top left */}
+                <div className="absolute -top-2 -left-2 p-1 px-2 bg-black/70 backdrop-blur-sm rounded-full text-xs font-bold shadow-md z-10">
+                  #{index + 1}
+                </div>
+
                 {searchingTrack === track.id?.toString() ? (
                   <div className="absolute top-2 right-2 p-1 bg-black/50 backdrop-blur-sm rounded-full transition-colors opacity-100">
                     <div className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />

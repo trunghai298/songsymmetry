@@ -13,11 +13,17 @@ model MostStreamedSongs {
   name             String?
   artist           String?
   thumbnail        String?
-  streamCount      BigInt?
-  dailyStreamCount BigInt?
   year             String?
   genre            String?
   language         String?
+  streamCount      BigInt?
+  dailyStreamCount BigInt?
+
+  @@index([artist], map: "idx_most_streamed_songs_artist")
+  @@index([genre], map: "idx_most_streamed_songs_genre")
+  @@index([language], map: "idx_most_streamed_songs_language")
+  @@index([name], map: "idx_most_streamed_songs_name")
+  @@index([year], map: "idx_most_streamed_songs_year")
 }
 
 model MostStreamedAlbums {

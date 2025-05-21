@@ -1,12 +1,16 @@
-const fetch = require('node-fetch');
+// Use built-in fetch API for Node.js versions 18+
+// No need for external package
 const fs = require('fs');
 const path = require('path');
 
 /**
  * Script to fetch data from chartmasters.org and save to a JSON file
  * This gets the most streamed songs data from their data table
+ * @param {Object} options - Options for fetching data
+ * @param {string} options.year - Year to filter songs by (e.g., "2024", "2023")
+ * @param {number} options.limit - Maximum number of songs to fetch (default: 10000)
  */
-async function fetchChartmastersData() {
+async function fetchChartmastersData(options = { year: "2024", limit: 10000 }) {
   const url = 'https://chartmasters.org/wp-admin/admin-ajax.php?action=get_wdtable&table_id=46';
   
   // Request headers to mimic a browser request
@@ -16,7 +20,7 @@ async function fetchChartmastersData() {
     'Content-Type': 'application/x-www-form-urlencoded',
   };
   
-  // The POST body parameters
+  // The POST body parameters - pre-encoding them manually
   const params = new URLSearchParams({
     'draw': '3',
     'columns[0][data]': '0',
@@ -71,7 +75,7 @@ async function fetchChartmastersData() {
     'columns[8][name]': 'year',
     'columns[8][searchable]': 'true',
     'columns[8][orderable]': 'true',
-    'columns[8][search][value]': '2024',
+    'columns[8][search][value]': options.year || '2024',
     'columns[8][search][regex]': 'true',
     'columns[9][data]': '9',
     'columns[9][name]': 'genre',
@@ -88,7 +92,7 @@ async function fetchChartmastersData() {
     'order[0][column]': '6',
     'order[0][dir]': 'desc',
     'start': '0',
-    'length': '10000',
+    'length': options.limit?.toString() || '10000',
     'search[value]': '',
     'search[regex]': 'false',
     'wdtNonce': 'c4780e8d1d',
@@ -96,7 +100,7 @@ async function fetchChartmastersData() {
   });
   
   try {
-    console.log('Fetching data from chartmasters.org...');
+    console.log(`Fetching data from chartmasters.org for year ${options.year || '2024'}...`);
     const response = await fetch(url, {
       method: 'POST',
       headers: headers,
@@ -109,6 +113,9 @@ async function fetchChartmastersData() {
     
     const data = await response.json();
     console.log(`Successfully fetched ${data.data.length} songs.`);
+    
+    // Log raw data first to check structure
+    console.log("Raw data example (first item):", data.data[0]);
     
     // Process the data to a cleaner format
     const processedData = data.data.map(item => {
@@ -128,15 +135,20 @@ async function fetchChartmastersData() {
         artist: item[3],
         imageUrl: imageUrl,
         streamCount: playcount,
-        dailyStreams: parseInt(item[7].replace(/,/g, ''), 10),
+        dailyStreamCount: parseInt(item[7].replace(/,/g, ''), 10),
         year: item[8],
         genre: item[9],
         language: item[10]
       };
     });
     
-    // Save the processed data to a JSON file
-    const outputPath = path.join(__dirname, 'chartmasters-data.json');
+    // Log a few processed items to check format
+    console.log("Processed data example (first 3 items):");
+    console.log(JSON.stringify(processedData.slice(0, 3), null, 2));
+    
+    // Save the processed data to a JSON file with year in the filename
+    const year = options.year || '2024';
+    const outputPath = path.join(__dirname, `chartmasters-data-${year}.json`);
     fs.writeFileSync(outputPath, JSON.stringify(processedData, null, 2));
     console.log(`Data saved to ${outputPath}`);
     
@@ -147,11 +159,35 @@ async function fetchChartmastersData() {
   }
 }
 
+// Function to parse command line arguments
+function parseArgs() {
+  const args = process.argv.slice(2);
+  const options = { year: '2024', limit: 10000 };
+  
+  // Parse arguments
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--year' && i + 1 < args.length) {
+      options.year = args[i + 1];
+      i++; // Skip the next argument as it's the value
+    } else if (args[i] === '--limit' && i + 1 < args.length) {
+      options.limit = parseInt(args[i + 1], 10);
+      i++; // Skip the next argument as it's the value
+    }
+  }
+  
+  return options;
+}
+
 // Add the ability to run this script directly
 if (require.main === module) {
-  fetchChartmastersData()
+  // Parse command line arguments
+  const options = parseArgs();
+  
+  console.log(`Starting fetch with options: year=${options.year}, limit=${options.limit}`);
+  
+  fetchChartmastersData(options)
     .then(data => {
-      console.log(`Finished processing ${data.length} songs`);
+      console.log(`Finished processing ${data.length} songs for year ${options.year}`);
     })
     .catch(err => {
       console.error('Script failed:', err);

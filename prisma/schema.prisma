@@ -9,7 +9,7 @@ datasource db {
 }
 
 model MostStreamedSongs {
-  id               Int     @id @default(autoincrement())
+  id               Int       @id @default(autoincrement())
   name             String?
   artist           String?
   thumbnail        String?
@@ -18,10 +18,12 @@ model MostStreamedSongs {
   year             String?
   genre            String?
   language         String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }
 
 model MostStreamedAlbums {
-  id               Int     @id @default(autoincrement())
+  id               Int       @id @default(autoincrement())
   albName          String?
   artist           String?
   thumbnail        String?
@@ -31,4 +33,6 @@ model MostStreamedAlbums {
   year             String?
   genre            String?
   language         String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }

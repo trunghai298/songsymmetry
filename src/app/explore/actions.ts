@@ -35,6 +35,9 @@ export const getMostStreamedSongs = async (params: Params) => {
     },
     take: limit,
     skip: offset,
+    orderBy: {
+      streamCount: "desc",
+    },
   });
 
   return songs;
