@@ -31,6 +31,9 @@ export function startSongUpdateWorker() {
         case 'update-weekly':
           await processWeeklyUpdate(job);
           break;
+        case 'update-daily':
+          await processDailyUpdate(job);
+          break;
         default:
           throw new Error(`Unknown job type: ${job.data.type}`);
       }
@@ -141,6 +144,34 @@ async function processWeeklyUpdate(job: any) {
     await job.updateProgress(100);
   } catch (error) {
     console.error('Error during weekly update:', error);
+    throw error;
+  }
+}
+
+/**
+ * Process a daily update
+ */
+async function processDailyUpdate(job: any) {
+  console.log(`Starting daily update, job ${job.id}`);
+  
+  // In a real implementation, you would call your existing update scripts
+  try {
+    // Example: Update songs for today's data
+    // TODO: Add actual implementation to call existing daily update script
+    // For example: const { default: dailyUpdate } = await import('../../scripts/daily-update');
+    // await dailyUpdate();
+    
+    // For testing, just log the action
+    await job.updateProgress(50);
+    console.log('Daily update in progress...');
+    
+    // Simulating work
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    console.log('Daily update completed');
+    await job.updateProgress(100);
+  } catch (error) {
+    console.error('Error during daily update:', error);
     throw error;
   }
 }

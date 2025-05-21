@@ -6,7 +6,7 @@ export const SONG_UPDATE_QUEUE = 'song-updates';
 
 // Types for job data
 export type SongUpdateJobData = {
-  type: 'update-all' | 'update-year' | 'update-weekly';
+  type: 'update-all' | 'update-year' | 'update-weekly' | 'update-daily';
   year?: string; // Optional year for year-specific updates
   date?: string; // Optional date for date-specific updates
 };
@@ -138,9 +138,49 @@ export async function scheduleWeeklyUpdate(): Promise<string | null> {
   }
 }
 
+/**
+ * Schedule a daily update job
+ * @returns Promise<string | null> Job ID if successful
+ */
+export async function scheduleDailyUpdate(): Promise<string | null> {
+  // Ensure queue is initialized
+  if (!songUpdateQueue) {
+    const initialized = await initializeQueues();
+    if (!initialized) return null;
+  }
+
+  try {
+    // Schedule for the next day at 1am
+    const now = new Date();
+    const tomorrow = new Date();
+    tomorrow.setDate(now.getDate() + 1);
+    tomorrow.setHours(1, 0, 0, 0); // 1:00 AM
+
+    const job = await songUpdateQueue!.add(
+      { 
+        type: 'update-daily',
+        date: tomorrow.toISOString() 
+      },
+      { 
+        delay: tomorrow.getTime() - now.getTime(), // Delay until tomorrow
+        repeat: {
+          cron: '0 1 * * *' // Every day at 1:00 AM (cron syntax)
+        }
+      }
+    );
+    
+    console.log(`Scheduled daily update, first run: ${tomorrow.toISOString()}, job: ${job.id}`);
+    return String(job.id);
+  } catch (error) {
+    console.error('Failed to schedule daily update job:', error);
+    return null;
+  }
+}
+
 export default {
   initializeQueues,
   scheduleFullUpdate,
   scheduleYearUpdate,
   scheduleWeeklyUpdate,
+  scheduleDailyUpdate,
 };

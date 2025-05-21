@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isRedisAvailable } from '@/lib/redis';
-import { scheduleFullUpdate, scheduleYearUpdate, scheduleWeeklyUpdate } from '@/lib/redis/queues';
+import { scheduleFullUpdate, scheduleYearUpdate, scheduleWeeklyUpdate, scheduleDailyUpdate } from '@/lib/redis/queues';
 
 // API route handler for song updates
 export async function GET(request: NextRequest) {
@@ -91,6 +91,22 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ 
           status: 'ok', 
           message: 'Weekly updates scheduled', 
+          jobId 
+        });
+      }
+      
+      case 'schedule-daily': {
+        const jobId = await scheduleDailyUpdate();
+        if (!jobId) {
+          return NextResponse.json(
+            { status: 'error', message: 'Failed to schedule daily updates' },
+            { status: 500 }
+          );
+        }
+        
+        return NextResponse.json({ 
+          status: 'ok', 
+          message: 'Daily updates scheduled', 
           jobId 
         });
       }
