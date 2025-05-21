@@ -145,20 +145,16 @@ function MostStreamSongs({
 
     // Dispatch the track to the Redux store
     try {
-      // First close the dialog to prevent UI conflicts
+      dispatch(setTrack(track));
+      console.log("Track dispatched to Redux store");
+
+      // toast({
+      //   title: "Playing track",
+      //   description: `Now playing ${track.name} by ${track.artists[0].name}`,
+      // });
+
+      // Close the dialog
       setShowResultsDialog(false);
-      
-      // Short delay to ensure UI updates before loading the player
-      setTimeout(() => {
-        // Dispatch after the dialog is closed
-        dispatch(setTrack(track));
-        console.log("Track dispatched to Redux store:", track.name);
-        
-        toast({
-          title: "Playing",
-          description: `Now playing ${track.name} by ${track.artists[0].name}`,
-        });
-      }, 50);
     } catch (error) {
       console.error("Error playing track:", error);
       toast({
@@ -182,12 +178,8 @@ function MostStreamSongs({
         const cachedResults = trackSearchCache[track.id.toString()];
         console.log("Using cached search results for quick play:", track.name);
 
-        // Play the first result with a slight delay to ensure UI updates
-        setTimeout(() => {
-          playTrack(cachedResults[0]);
-          // Reset the playing state slightly after the playTrack function is called
-          setTimeout(() => setPlayingTrack(null), 100);
-        }, 10);
+        // Play the first result
+        playTrack(cachedResults[0]);
       } else {
         // Need to search first
         const cleanName = track.name?.replace(/<[^>]*>?/gm, "").trim() || "";
@@ -210,19 +202,14 @@ function MostStreamSongs({
             [track.id!.toString()]: results,
           }));
 
-          // Play the first result with a delay to ensure UI is ready
-          setTimeout(() => {
-            playTrack(results[0]);
-            // Reset the playing state slightly after the playTrack function is called
-            setTimeout(() => setPlayingTrack(null), 100);
-          }, 10);
+          // Play the first result
+          playTrack(results[0]);
         } else {
           toast({
             title: "No results",
             description: `Could not find "${cleanName}" on Spotify`,
             variant: "destructive",
           });
-          setPlayingTrack(null);
         }
       }
     } catch (error) {
@@ -232,6 +219,7 @@ function MostStreamSongs({
         description: "Failed to play the track",
         variant: "destructive",
       });
+    } finally {
       setPlayingTrack(null);
     }
   };
@@ -483,17 +471,13 @@ function MostStreamSongs({
                   variant="default"
                   size="sm"
                   className="bg-green-600 hover:bg-green-700 text-white"
-                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
                     if (searchResults.length > 0) {
                       console.log(
                         "Playing first result:",
                         searchResults[0].name
                       );
-                      // Force UI update before playing
-                      setTimeout(() => {
-                        playTrack(searchResults[0]);
-                      }, 0);
+                      playTrack(searchResults[0]);
                     }
                   }}
                   disabled={searchResults.length === 0}
@@ -558,10 +542,6 @@ function MostStreamSongs({
                       size="icon"
                       variant="default"
                       className="rounded-full bg-green-600 hover:bg-green-700 text-white"
-                      onMouseDown={(e) => {
-                        e.stopPropagation(); // Prevent card click
-                        e.preventDefault();
-                      }}
                       onClick={(e) => {
                         e.stopPropagation(); // Prevent card click
                         e.preventDefault();
@@ -569,10 +549,7 @@ function MostStreamSongs({
                           "Play button clicked for track:",
                           track.name
                         );
-                        // Try to force synchronous UI update
-                        setTimeout(() => {
-                          playTrack(track);
-                        }, 0);
+                        playTrack(track);
                       }}
                     >
                       <Play className="h-5 w-5" />

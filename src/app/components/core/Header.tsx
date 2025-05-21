@@ -54,9 +54,9 @@ export const Header = () => {
             </a>
             <a
               className="text-lg font-medium hover:text-spotify-green hover:underline cursor-pointer"
-              onClick={() => router.push("/analytics")}
+              onClick={() => router.push("/explore")}
             >
-              Analytics
+              Explore
             </a>
             <div className="hidden sm:inline-block relative cursor-pointer min-w-[100px]">
               <div

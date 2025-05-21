@@ -3,15 +3,8 @@ import React, { FC, HTMLAttributes, useEffect, useRef, useState } from "react";
 import { usePlayer } from "@/hooks/usePlayer";
 
 export const EmbedPlayer: FC<HTMLAttributes<HTMLDivElement>> = () => {
-  const { 
-    isOpen, 
-    size, 
-    track, 
-    embedSrc, 
-    close, 
-    toggleSize
-  } = usePlayer();
-  
+  const { isOpen, size, track, embedSrc, close, toggleSize } = usePlayer();
+
   const [minimized, setMinimized] = useState(false);
   const [dragging, setDragging] = useState(false);
 
@@ -22,13 +15,19 @@ export const EmbedPlayer: FC<HTMLAttributes<HTMLDivElement>> = () => {
     let y = 0;
     const ele = ref.current;
     if (!ele || !isOpen) return;
-    
+
     if (track) {
       document.title = `🎶 ${track.name} - ${track.artists[0].name} 🎶`;
     }
-    
+
     setMinimized(false);
-    
+
+    // Reset position to default bottom right
+    ele.style.top = "unset";
+    ele.style.left = "unset";
+    ele.style.right = "8px";
+    ele.style.bottom = size === "compact" ? "8px" : "60px";
+
     const mouseDownHandler = function (e: any) {
       setDragging(true);
       x = e.clientX;
@@ -77,7 +76,7 @@ export const EmbedPlayer: FC<HTMLAttributes<HTMLDivElement>> = () => {
     if (!dragging) {
       const player = ref.current;
       if (player && player.offsetTop > window.innerHeight - 100) {
-        player.style.setProperty("bottom", "0");
+        player.style.setProperty("bottom", size === "compact" ? "8px" : "60px");
         player.style.setProperty("top", "unset");
       }
       if (player && player.offsetLeft < 0) {
@@ -92,15 +91,18 @@ export const EmbedPlayer: FC<HTMLAttributes<HTMLDivElement>> = () => {
         player &&
         window.innerWidth - player.offsetLeft < player.clientWidth
       ) {
-        player.style.setProperty("right", "0");
+        player.style.setProperty("right", "8px");
         player.style.setProperty("left", "unset");
       }
       if (player && player.offsetLeft > window.innerWidth / 2) {
-        player?.style.setProperty("right", "0");
+        player?.style.setProperty("right", "8px");
         player?.style.setProperty("left", "unset");
       } else {
-        player?.style.setProperty("left", "0");
-        player?.style.setProperty("right", "unset");
+        // Only reset left position if we're in the left half of screen
+        if (player && player.offsetLeft < window.innerWidth / 2) {
+          player?.style.setProperty("left", "8px");
+          player?.style.setProperty("right", "unset");
+        }
       }
     }
   }, [dragging, size]);
@@ -113,7 +115,7 @@ export const EmbedPlayer: FC<HTMLAttributes<HTMLDivElement>> = () => {
       id="player"
       style={{
         width: minimized ? "80px" : "",
-        right: minimized ? 0 : 8,
+        right: "8px",
         left: minimized ? "unset" : "",
       }}
       className={`select-none fixed ${
@@ -121,8 +123,10 @@ export const EmbedPlayer: FC<HTMLAttributes<HTMLDivElement>> = () => {
       } md:w-1/3 lg:w-1/4 ${
         dragging ? "transition" : "transition-all"
       }  ease-in-out duration-500 ${
-        size === "compact" ? "bottom-0" : "bottom-16"
-      } right-8 z-50 box-border`}
+        size === "compact" ? "bottom-2" : "bottom-[60px]"
+      } 
+      z-50
+      box-border`}
     >
       <div className="absolute flex items-center justify-center space-x-1 right-0 -top-7">
         {!minimized && (
@@ -132,7 +136,16 @@ export const EmbedPlayer: FC<HTMLAttributes<HTMLDivElement>> = () => {
                 ? "bi-aspect-ratio"
                 : "bi-arrows-angle-contract"
             } font-bold cursor-pointer`}
-            onClick={toggleSize}
+            onClick={() => {
+              // Reset position when toggling size
+              if (ref.current) {
+                ref.current.style.top = "unset";
+                ref.current.style.left = "unset";
+                ref.current.style.right = "8px";
+                ref.current.style.bottom = size === "compact" ? "60px" : "8px";
+              }
+              toggleSize();
+            }}
           />
         )}
         <i
@@ -141,7 +154,16 @@ export const EmbedPlayer: FC<HTMLAttributes<HTMLDivElement>> = () => {
           } text-gray-300 ${
             minimized ? "text-sm" : "text-2xl"
           } font-bold cursor-pointer`}
-          onClick={() => setMinimized(!minimized)}
+          onClick={() => {
+            // Reset position when toggling minimized state
+            if (ref.current) {
+              ref.current.style.top = "unset";
+              ref.current.style.left = "unset";
+              ref.current.style.right = "8px";
+              ref.current.style.bottom = size === "compact" ? "8px" : "60px";
+            }
+            setMinimized(!minimized);
+          }}
         />
         <i className="select-none bi bi-arrows-move text-gray-300 text-md cursor-pointer" />
         <i
@@ -156,6 +178,7 @@ export const EmbedPlayer: FC<HTMLAttributes<HTMLDivElement>> = () => {
         frameBorder="0"
         allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
         loading="lazy"
+        className="border-0"
       ></iframe>
     </div>
   );

@@ -38,6 +38,7 @@ export const SpotifyProvider = ({ children }: SpotifyProviderProps) => {
         
         // Check if we already have the client instance
         if (cachedClient) {
+          console.log("Using cached Spotify client");
           setClient(cachedClient);
           setIsLoading(false);
           return;
@@ -45,11 +46,14 @@ export const SpotifyProvider = ({ children }: SpotifyProviderProps) => {
         
         // Initialize and test the client
         try {
+          console.log("Initializing Spotify client");
           // Test the connection by getting the current user profile
-          await rawSdk.currentUser.profile();
+          const userProfile = await rawSdk.currentUser.profile();
+          console.log("Spotify user profile retrieved:", userProfile.display_name);
           
           // Create a new cached client
           cachedClient = new CachedSpotifyClient(rawSdk);
+          console.log("CachedSpotifyClient created successfully");
           setClient(cachedClient);
           setError(null);
         } catch (err) {

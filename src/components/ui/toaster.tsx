@@ -18,7 +18,7 @@ export function Toaster() {
       {toasts.map(function ({ id, title, description, action, ...props }) {
         return (
           <Toast
-            className="bg-gray-900 text-white z-max p-4 rounded-xl shadow-lg"
+            className="bg-gray-900 text-white z-max p-4 rounded-xl shadow-lg border-green-500 border"
             key={id}
             {...props}
           >

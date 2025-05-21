@@ -14,10 +14,10 @@ const WelcomeSection = () => {
         <div className="flex flex-col items-center space-y-4 text-center">
           <div className="">
             <h1 className="text-3xl text-white font-bold tracking-tighter sm:text-4xl md:text-5xl lg:text-6xl/none">
-              Personalized Your Music Journey
+              Explore Your Music Universe
             </h1>
             <p className="mx-auto max-w-[700px] text-gray-500 md:text-xl py-4 dark:text-gray-400">
-              Uncover your music journey with personalized analytics and data.
+              Discover trending tracks and find your next favorite song with just a click.
             </p>
           </div>
         </div>
@@ -26,9 +26,9 @@ const WelcomeSection = () => {
   );
 };
 
-function Analytics() {
+function Explore() {
   const [filters, setFilters] = useState<SongFilters>({
-    limit: 30,
+    limit: 20,
     year: "2024",
   });
   const [topSongs, setTopSongs] = useState<MostStreamedSong[]>([]);
@@ -55,4 +55,4 @@ function Analytics() {
   );
 }
 
-export default Analytics;
+export default Explore;
