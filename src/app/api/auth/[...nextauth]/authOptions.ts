@@ -37,8 +37,12 @@ const authOptions: AuthOptions = {
         id: account?.providerAccountId,
       };
 
-      if (Date.now() < updatedToken.expires_at) {
-        console.log("refreshAccessToken");
+      // Convert expires_at to milliseconds for comparison with Date.now()
+      const expiresAtMs = (updatedToken.expires_at as number) * 1000;
+      
+      // Check if the token is expired or about to expire (within 5 minutes)
+      if (Date.now() >= expiresAtMs - 5 * 60 * 1000) {
+        console.log("Token expired or about to expire, refreshing access token");
         return refreshAccessToken(updatedToken);
       }
 

@@ -41,31 +41,55 @@ export default spotifyProfile;
 
 export async function refreshAccessToken(token: JWT) {
   try {
-    const response = await fetch(authURL, {
+    // Spotify token refresh endpoint
+    const tokenEndpoint = "https://accounts.spotify.com/api/token";
+    
+    // Prepare the request body as per Spotify API requirements
+    const basicAuth = Buffer.from(
+      `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`
+    ).toString("base64");
+    
+    const body = new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: token.refresh_token as string,
+    });
+
+    console.log("Refreshing token for:", token.email);
+    
+    const response = await fetch(tokenEndpoint, {
+      method: "POST",
       headers: {
+        Authorization: `Basic ${basicAuth}`,
         "Content-Type": "application/x-www-form-urlencoded",
       },
-      method: "POST",
-      cache: "no-cache",
+      body: body.toString(),
+      cache: "no-store",
     });
 
     const refreshedTokens = await response.json();
 
     if (!response.ok) {
+      console.error("Token refresh failed:", refreshedTokens);
       throw refreshedTokens;
     }
+    
+    console.log("Token refreshed successfully");
+    
+    // Calculate new expiry time in seconds
+    const now = Math.floor(Date.now() / 1000);
+    const expiresAt = now + refreshedTokens.expires_in;
 
     return {
       ...token,
       access_token: refreshedTokens.access_token,
       token_type: refreshedTokens.token_type,
-      expires_at: refreshedTokens.expires_at,
-      expires_in: (refreshedTokens.expires_at ?? 0) - Date.now() / 1000,
+      expires_at: expiresAt,
+      expires_in: refreshedTokens.expires_in,
       refresh_token: refreshedTokens.refresh_token ?? token.refresh_token,
-      scope: refreshedTokens.scope,
+      scope: refreshedTokens.scope ?? token.scope,
     };
   } catch (error) {
-    console.error(error);
+    console.error("Error refreshing token:", error);
     return {
       ...token,
       error: "RefreshAccessTokenError",
