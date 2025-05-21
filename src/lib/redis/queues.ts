@@ -151,28 +151,14 @@ export async function scheduleDailyUpdate(): Promise<string | null> {
   }
 
   try {
-    // Schedule for the next day at 1am
-    const now = new Date();
-    const tomorrow = new Date();
-    tomorrow.setDate(now.getDate() + 1);
-    tomorrow.setHours(1, 0, 0, 0); // 1:00 AM
-
-    // Use a simple interval-based approach instead of cron
-    const job = await songUpdateQueue!.add(
-      { 
-        type: 'update-daily',
-        date: tomorrow.toISOString() 
-      },
-      { 
-        delay: tomorrow.getTime() - now.getTime(),
-        repeat: {
-          every: 86400000 // 24 hours in milliseconds
-        }
-      }
-    );
+    // Schedule a non-repeating job first instead
+    // We'll create a one-time job for now (to test)
+    const job = await songUpdateQueue!.add({ 
+      type: 'update-daily',
+      date: new Date().toISOString() 
+    });
     
-    const hoursUntilExecution = Math.round((tomorrow.getTime() - now.getTime()) / 3600000);
-    console.log(`Scheduled daily update, first run in ${hoursUntilExecution} hours, job: ${job.id}`);
+    console.log(`Scheduled immediate daily update, job: ${job.id}`);
     return String(job.id);
   } catch (error) {
     console.error('Failed to schedule daily update job:', error);
