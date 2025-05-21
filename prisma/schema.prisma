@@ -1,0 +1,34 @@
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "library"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model MostStreamedSongs {
+  id               Int     @id @default(autoincrement())
+  name             String?
+  artist           String?
+  thumbnail        String?
+  streamCount      BigInt?
+  dailyStreamCount BigInt?
+  year             String?
+  genre            String?
+  language         String?
+}
+
+model MostStreamedAlbums {
+  id               Int     @id @default(autoincrement())
+  albName          String?
+  artist           String?
+  thumbnail        String?
+  albType          String?
+  streamCount      BigInt?
+  dailyStreamCount BigInt?
+  year             String?
+  genre            String?
+  language         String?
+}

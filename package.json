@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "convert-data": "node src/scripts/convert-data.js",
-    "prisma:generate": "prisma generate"
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate deploy"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.12.0",

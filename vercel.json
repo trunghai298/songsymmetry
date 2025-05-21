@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm run prisma:generate && npm run build",
+  "buildCommand": "npm run prisma:generate && npm run prisma:migrate && npm run build",
   "installCommand": "npm install",
   "outputDirectory": ".next"
 }

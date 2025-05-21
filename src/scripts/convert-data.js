@@ -1,5 +1,5 @@
 import pkg from "lodash";
-import { prisma } from "../prisma/client.js";
+import { prisma } from "../lib/prisma.js";
 const { map } = pkg;
 
 const topAlbums = [
