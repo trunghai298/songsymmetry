@@ -96,19 +96,35 @@ export async function POST(request: NextRequest) {
       }
       
       case 'schedule-daily': {
-        const jobId = await scheduleDailyUpdate();
-        if (!jobId) {
+        try {
+          console.log('Attempting to schedule daily update...');
+          const jobId = await scheduleDailyUpdate();
+          
+          if (!jobId) {
+            console.log('Schedule daily update returned null job ID');
+            return NextResponse.json(
+              { status: 'error', message: 'Failed to schedule daily updates - null job ID' },
+              { status: 500 }
+            );
+          }
+          
+          console.log(`Successfully scheduled daily update with job ID: ${jobId}`);
+          return NextResponse.json({ 
+            status: 'ok', 
+            message: 'Daily updates scheduled', 
+            jobId 
+          });
+        } catch (err) {
+          console.error('Error scheduling daily update:', err);
           return NextResponse.json(
-            { status: 'error', message: 'Failed to schedule daily updates' },
+            { 
+              status: 'error', 
+              message: 'Exception in daily update scheduling',
+              error: err instanceof Error ? err.message : String(err)
+            },
             { status: 500 }
           );
         }
-        
-        return NextResponse.json({ 
-          status: 'ok', 
-          message: 'Daily updates scheduled', 
-          jobId 
-        });
       }
       
       default:

@@ -16,12 +16,28 @@ export function startSongUpdateWorker() {
     redis: process.env.REDIS_URL,
   });
 
-  // Process jobs
-  queue.process(async (job) => {
-    console.log(`Processing job ${job.id} of type ${job.data.type}`);
-
+  // Set up named processors for job types
+  queue.process('daily-update-simple', async (job) => {
+    console.log(`Processing named job 'daily-update-simple' with ID ${job.id}`);
+    console.log(`Job data: ${JSON.stringify(job.data)}`);
+    
     try {
-      switch (job.data.type) {
+      return await processDailyUpdate(job);
+    } catch (error) {
+      console.error(`Job ${job.id} failed:`, error);
+      throw error;
+    }
+  });
+  
+  // Process general jobs
+  queue.process(async (job) => {
+    console.log(`Processing unnamed job ${job.id} with data: ${JSON.stringify(job.data)}`);
+    
+    try {
+      const type = job.data?.type;
+      console.log(`Job type: ${type}`);
+      
+      switch (type) {
         case "update-all":
           await processFullUpdate(job);
           break;
@@ -35,7 +51,7 @@ export function startSongUpdateWorker() {
           await processDailyUpdate(job);
           break;
         default:
-          throw new Error(`Unknown job type: ${job.data.type}`);
+          throw new Error(`Unknown job type: ${type || 'undefined'}`);
       }
 
       console.log(`Job ${job.id} completed successfully`);
