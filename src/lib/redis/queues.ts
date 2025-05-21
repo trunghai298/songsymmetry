@@ -117,16 +117,16 @@ export async function scheduleWeeklyUpdate(): Promise<string | null> {
     nextMonday.setDate(now.getDate() + ((1 + 7 - now.getDay()) % 7)); // Next Monday
     nextMonday.setHours(3, 0, 0, 0); // 3:00 AM
 
-    // Create a repeatable job for weekly updates
+    // Use a simple interval-based approach for weekly updates
     const job = await songUpdateQueue!.add(
       { 
         type: 'update-weekly',
         date: nextMonday.toISOString() 
       },
       { 
+        delay: nextMonday.getTime() - now.getTime(),
         repeat: {
-          cron: '0 3 * * 1', // Every Monday at 3:00 AM
-          tz: 'UTC' 
+          every: 604800000 // 7 days in milliseconds
         }
       }
     );
@@ -157,21 +157,22 @@ export async function scheduleDailyUpdate(): Promise<string | null> {
     tomorrow.setDate(now.getDate() + 1);
     tomorrow.setHours(1, 0, 0, 0); // 1:00 AM
 
-    // Create a repeatable job without delay for daily updates
+    // Use a simple interval-based approach instead of cron
     const job = await songUpdateQueue!.add(
       { 
         type: 'update-daily',
         date: tomorrow.toISOString() 
       },
       { 
+        delay: tomorrow.getTime() - now.getTime(),
         repeat: {
-          cron: '0 1 * * *', // Every day at 1:00 AM
-          tz: 'UTC'
+          every: 86400000 // 24 hours in milliseconds
         }
       }
     );
     
-    console.log(`Scheduled daily update, first run: ${tomorrow.toISOString()}, job: ${job.id}`);
+    const hoursUntilExecution = Math.round((tomorrow.getTime() - now.getTime()) / 3600000);
+    console.log(`Scheduled daily update, first run in ${hoursUntilExecution} hours, job: ${job.id}`);
     return String(job.id);
   } catch (error) {
     console.error('Failed to schedule daily update job:', error);
