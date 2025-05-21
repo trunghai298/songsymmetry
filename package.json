@@ -4,10 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
-    "convert-data": "node src/scripts/convert-data.js"
+    "convert-data": "node src/scripts/convert-data.js",
+    "prisma:generate": "prisma generate"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.12.0",
@@ -55,6 +56,7 @@
     "daisyui": "^4.12.10",
     "eslint": "^8",
     "eslint-config-next": "14.0.3",
+    "prisma": "^6.3.1",
     "typescript": "^5"
   }
 }
