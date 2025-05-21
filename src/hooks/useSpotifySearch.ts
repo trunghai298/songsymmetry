@@ -22,7 +22,12 @@ export function useSpotifySearch() {
     setIsSearching(true);
     try {
       const results = await client.search(q, ["track"], undefined, 10);
-      setSearchResult(results.tracks.items);
+      // Check if results.tracks exists and has items before setting the result
+      if (results?.tracks?.items) {
+        setSearchResult(results.tracks.items);
+      } else {
+        setSearchResult([]);
+      }
       setError(null);
     } catch (err) {
       console.error("Search error:", err);

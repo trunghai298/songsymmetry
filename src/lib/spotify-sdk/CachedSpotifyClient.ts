@@ -1,7 +1,10 @@
 "use client";
 
-import { SpotifyApi } from "@spotify/web-api-ts-sdk";
+import { ItemTypes, Market, MaxInt, SpotifyApi } from "@spotify/web-api-ts-sdk";
 import { LocalStorageCache } from "../cache/localStorageCache";
+
+// Define the allowed time range values that Spotify API accepts
+type TimeRangeType = "short_term" | "medium_term" | "long_term";
 
 /**
  * A thin wrapper around the Spotify SDK client that adds caching functionality
@@ -12,7 +15,9 @@ export class CachedSpotifyClient {
 
   constructor(client: SpotifyApi) {
     this.client = client;
-    this.cache = new LocalStorageCache('spotify-cache', { expiry: 1000 * 60 * 60 }); // 1 hour default
+    this.cache = new LocalStorageCache("spotify-cache", {
+      expiry: 1000 * 60 * 60,
+    }); // 1 hour default
   }
 
   /**
@@ -33,11 +38,11 @@ export class CachedSpotifyClient {
   ): Promise<T> {
     const cacheKey = this.createCacheKey(method, args);
     const cached = this.cache.get<T>(cacheKey);
-    
+
     if (cached) {
       return cached;
     }
-    
+
     const result = await apiCall();
     this.cache.set(cacheKey, result, { expiry: cacheTime });
     return result;
@@ -48,10 +53,13 @@ export class CachedSpotifyClient {
   /**
    * Get a user's top tracks with caching
    */
-  async getUserTopTracks(timeRange = 'short_term', limit = 20) {
+  async getUserTopTracks(
+    timeRange: TimeRangeType = "short_term",
+    limit: MaxInt<50> = 20 as MaxInt<50>
+  ) {
     return this.cachedRequest(
-      'getUserTopTracks',
-      () => this.client.currentUser.topItems('tracks', timeRange, limit),
+      "getUserTopTracks",
+      () => this.client.currentUser.topItems("tracks", timeRange, limit),
       [timeRange, limit],
       1000 * 60 * 60 // 1 hour cache
     );
@@ -60,10 +68,13 @@ export class CachedSpotifyClient {
   /**
    * Get a user's top artists with caching
    */
-  async getUserTopArtists(timeRange = 'short_term', limit = 20) {
+  async getUserTopArtists(
+    timeRange: TimeRangeType = "short_term",
+    limit: MaxInt<50> = 20 as MaxInt<50>
+  ) {
     return this.cachedRequest(
-      'getUserTopArtists',
-      () => this.client.currentUser.topItems('artists', timeRange, limit),
+      "getUserTopArtists",
+      () => this.client.currentUser.topItems("artists", timeRange, limit),
       [timeRange, limit],
       1000 * 60 * 60 * 24 // 24 hour cache (changes less frequently)
     );
@@ -72,9 +83,9 @@ export class CachedSpotifyClient {
   /**
    * Get a user's playlists with caching
    */
-  async getUserPlaylists(limit = 20, offset = 0) {
+  async getUserPlaylists(limit: MaxInt<50> = 20 as MaxInt<50>, offset = 0) {
     return this.cachedRequest(
-      'getUserPlaylists',
+      "getUserPlaylists",
       () => this.client.currentUser.playlists.playlists(limit, offset),
       [limit, offset],
       1000 * 60 * 30 // 30 minute cache
@@ -86,20 +97,31 @@ export class CachedSpotifyClient {
    */
   async getPlaylist(playlistId: string) {
     return this.cachedRequest(
-      'getPlaylist',
+      "getPlaylist",
       () => this.client.playlists.getPlaylist(playlistId),
       [playlistId],
-      1000 * 60 * 10 // 10 minute cache 
+      1000 * 60 * 10 // 10 minute cache
     );
   }
 
   /**
    * Get playlist tracks with caching
    */
-  async getPlaylistTracks(playlistId: string, limit = 100, offset = 0) {
+  async getPlaylistTracks(
+    playlistId: string,
+    limit: MaxInt<50> = 50 as MaxInt<50>,
+    offset = 0
+  ) {
     return this.cachedRequest(
-      'getPlaylistTracks',
-      () => this.client.playlists.getPlaylistItems(playlistId, undefined, undefined, limit, offset),
+      "getPlaylistTracks",
+      () =>
+        this.client.playlists.getPlaylistItems(
+          playlistId,
+          undefined,
+          undefined,
+          limit,
+          offset
+        ),
       [playlistId, limit, offset],
       1000 * 60 * 10 // 10 minute cache
     );
@@ -110,7 +132,7 @@ export class CachedSpotifyClient {
    */
   async getTrack(trackId: string) {
     return this.cachedRequest(
-      'getTrack',
+      "getTrack",
       () => this.client.tracks.get(trackId),
       [trackId],
       1000 * 60 * 60 * 24 // 24 hour cache (track metadata rarely changes)
@@ -122,7 +144,7 @@ export class CachedSpotifyClient {
    */
   async getTracks(trackIds: string[]) {
     return this.cachedRequest(
-      'getTracks',
+      "getTracks",
       () => this.client.tracks.get(trackIds),
       [trackIds],
       1000 * 60 * 60 * 24 // 24 hour cache
@@ -134,7 +156,7 @@ export class CachedSpotifyClient {
    */
   async getArtist(artistId: string) {
     return this.cachedRequest(
-      'getArtist',
+      "getArtist",
       () => this.client.artists.get(artistId),
       [artistId],
       1000 * 60 * 60 * 24 // 24 hour cache
@@ -144,9 +166,9 @@ export class CachedSpotifyClient {
   /**
    * Get artist's top tracks with caching
    */
-  async getArtistTopTracks(artistId: string, market = 'US') {
+  async getArtistTopTracks(artistId: string, market: Market = "US") {
     return this.cachedRequest(
-      'getArtistTopTracks',
+      "getArtistTopTracks",
       () => this.client.artists.topTracks(artistId, market),
       [artistId, market],
       1000 * 60 * 60 * 3 // 3 hour cache
@@ -158,7 +180,7 @@ export class CachedSpotifyClient {
    */
   async getRelatedArtists(artistId: string) {
     return this.cachedRequest(
-      'getRelatedArtists',
+      "getRelatedArtists",
       () => this.client.artists.relatedArtists(artistId),
       [artistId],
       1000 * 60 * 60 * 24 // 24 hour cache
@@ -168,9 +190,15 @@ export class CachedSpotifyClient {
   /**
    * Search with caching
    */
-  async search(query: string, types: string[], market?: string, limit = 20, offset = 0) {
+  async search(
+    query: string,
+    types: ItemTypes[],
+    market?: Market,
+    limit: MaxInt<50> = 20 as MaxInt<50>,
+    offset = 0
+  ) {
     return this.cachedRequest(
-      'search',
+      "search",
       () => this.client.search(query, types, market, limit, offset),
       [query, types, market, limit, offset],
       1000 * 60 * 10 // 10 minute cache
@@ -182,7 +210,7 @@ export class CachedSpotifyClient {
    */
   async getRecommendations(params: any) {
     return this.cachedRequest(
-      'getRecommendations',
+      "getRecommendations",
       () => this.client.recommendations.get(params),
       [params],
       1000 * 60 * 30 // 30 minute cache

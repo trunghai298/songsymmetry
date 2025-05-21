@@ -1,10 +1,14 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Page, Track } from "@spotify/web-api-ts-sdk";
+import { MaxInt, Page, Track } from "@spotify/web-api-ts-sdk";
 import { useSpotify } from './useSpotify';
 
-export function useTopTracks(timeRange = 'short_term', limit = 30) {
+// Define the allowed time range values that Spotify API accepts
+type TimeRangeType = 'short_term' | 'medium_term' | 'long_term';
+
+// By default, limit to 30 tracks (must use type assertion for MaxInt)
+export function useTopTracks(timeRange: TimeRangeType = 'short_term', limit: MaxInt<50> = 30 as MaxInt<50>) {
   const [topTracks, setTopTracks] = useState<Page<Track>>();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
