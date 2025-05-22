@@ -13,6 +13,8 @@ export type AuthUser = {
   refresh_token: string;
   scope: string;
   id: string;
+  // Added for easier access in components
+  spotifyToken?: string;
 };
 
 const authOptions: AuthOptions = {
@@ -58,6 +60,8 @@ const authOptions: AuthOptions = {
         refresh_token: token.refresh_token,
         scope: token.scope,
         id: token.id,
+        // Add the token for easier access
+        spotifyToken: token.access_token,
       };
       session.user = user;
       session.error = token.error;
