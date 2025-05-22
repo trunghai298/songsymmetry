@@ -1,8 +1,8 @@
 "use client";
-import React, { FC, HTMLAttributes, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { usePlayer } from "@/hooks/usePlayer";
 
-export const EmbedPlayer: FC<HTMLAttributes<HTMLDivElement>> = () => {
+export const EmbedPlayer = () => {
   const { isOpen, size, track, embedSrc, close, toggleSize } = usePlayer();
 
   const [minimized, setMinimized] = useState(false);

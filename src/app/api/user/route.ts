@@ -3,7 +3,6 @@ import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import authOptions from "../auth/[...nextauth]/authOptions";
 import { getAuthUser } from "@/lib/session";
-import { get } from "lodash";
 
 /**
  * GET /api/user
@@ -63,7 +62,7 @@ export async function POST(request: NextRequest) {
         name: user.name,
         email: user.email,
         image: user.image,
-        spotifyId: get(user, "spotifyId"),
+        spotifyId: (user as any).spotifyId,
         spotifyToken: user.spotifyToken,
       },
       create: {
@@ -71,7 +70,7 @@ export async function POST(request: NextRequest) {
         name: user.name,
         email: user.email,
         image: user.image,
-        spotifyId: get(user, "spotifyId"),
+        spotifyId: (user as any).spotifyId,
         spotifyToken: user.spotifyToken,
       },
     });

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Container from "../../components/core/Container";
@@ -95,10 +95,57 @@ export default function StationDetailPage() {
   const { isConnected, joinStation, leaveStation, addTrack, subscribe } =
     useSocket();
   console.log("[Page] Socket connection status:", isConnected);
+  
+  const fetchStationData = useCallback(async (showLoading = true) => {
+    console.log("Fetching station data for ID:", stationId);
+    if (showLoading) {
+      setIsLoading(true);
+    }
+    try {
+      const response = await fetch(`/api/stations/${stationId}`);
+      console.log("Station response status:", response.status);
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          toast({
+            title: "Station not found",
+            description: "This station doesn't exist or has been deleted",
+            variant: "destructive",
+          });
+          router.push("/station");
+          return;
+        }
+        throw new Error("Failed to fetch station");
+      }
+
+      const data = await response.json();
+      console.log("Station data received:", data);
+      console.log("Tracks in station:", data.tracks ? data.tracks.length : 0);
+
+      // Make sure we have an array of tracks even if it's undefined in the response
+      if (!data.tracks) {
+        data.tracks = [];
+      }
+
+      setStation(data);
+    } catch (error) {
+      console.error("Error fetching station:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load station data",
+        variant: "destructive",
+      });
+    } finally {
+      if (showLoading) {
+        setIsLoading(false);
+      }
+    }
+  }, [stationId, toast, router]);
+
   // Fetch station data
   useEffect(() => {
     fetchStationData();
-  }, [stationId]);
+  }, [fetchStationData]);
 
   // Join the station's socket room when connected
   // Debug active members
@@ -218,52 +265,6 @@ export default function StationDetailPage() {
     subscribe,
     toast,
   ]);
-
-  const fetchStationData = async (showLoading = true) => {
-    console.log("Fetching station data for ID:", stationId);
-    if (showLoading) {
-      setIsLoading(true);
-    }
-    try {
-      const response = await fetch(`/api/stations/${stationId}`);
-      console.log("Station response status:", response.status);
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          toast({
-            title: "Station not found",
-            description: "This station doesn't exist or has been deleted",
-            variant: "destructive",
-          });
-          router.push("/station");
-          return;
-        }
-        throw new Error("Failed to fetch station");
-      }
-
-      const data = await response.json();
-      console.log("Station data received:", data);
-      console.log("Tracks in station:", data.tracks ? data.tracks.length : 0);
-
-      // Make sure we have an array of tracks even if it's undefined in the response
-      if (!data.tracks) {
-        data.tracks = [];
-      }
-
-      setStation(data);
-    } catch (error) {
-      console.error("Error fetching station:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load station data",
-        variant: "destructive",
-      });
-    } finally {
-      if (showLoading) {
-        setIsLoading(false);
-      }
-    }
-  };
 
   const handleJoinStation = async () => {
     if (!session?.user) {
@@ -669,7 +670,7 @@ export default function StationDetailPage() {
               Station not found
             </h2>
             <p className="text-gray-400">
-              This station may have been removed or you don't have permission to
+              This station may have been removed or you don&apos;t have permission to
               view it.
             </p>
             <Button onClick={() => router.push("/station")} variant="outline">

@@ -43,9 +43,9 @@ export function useSpotifySearch() {
         } else {
           console.log("No tracks found in results");
           setSearchResult([]);
+          setError(null);
           return [];
         }
-        setError(null);
       } catch (err) {
         console.error("Search error:", err);
         setError(err instanceof Error ? err : new Error("Search failed"));

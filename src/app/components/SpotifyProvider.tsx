@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useSession } from 'next-auth/react';
 import { SpotifyApi } from '@spotify/web-api-ts-sdk';
 import { AuthUser } from '@/app/api/auth/[...nextauth]/authOptions';
@@ -19,7 +19,7 @@ const SpotifyContext = createContext<SpotifyContextType>({
 
 export const useSpotify = () => useContext(SpotifyContext);
 
-export function SpotifyProvider({ children }: { children: React.ReactNode }) {
+export function SpotifyProvider({ children }: { children: ReactNode }) {
   const { data: session } = useSession();
   const [sdk, setSdk] = useState<SpotifyApi | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
