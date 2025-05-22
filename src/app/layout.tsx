@@ -6,7 +6,7 @@ import AuthSessionProvider from "./components/AuthSessionProvider";
 import { Header } from "./components/core/Header";
 import { EmbedPlayer } from "./components/core/EmbedPlayer";
 import { Providers as ReduxProviders } from "../lib/redux/providers";
-import { SpotifyProvider } from "./components/SpotifyProvider";
+import { SpotifyProvider } from "@/lib/spotify-sdk/SpotifyContext";
 import "bootstrap-icons/font/bootstrap-icons.css";
 import { Toaster } from "@/components/ui/toaster";
 import Footer from "./components/core/Footer";
