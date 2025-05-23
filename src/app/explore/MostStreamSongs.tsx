@@ -8,10 +8,18 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAppDispatch } from "@/lib/redux/hooks";
 import { setTrack } from "@/lib/redux/slices/playerSlices";
 import { MostStreamedSong, SongFilters } from "@/types/song";
 import { useSpotifySearch } from "@/hooks/useSpotifySearch";
+import { useFilterOptions } from "@/hooks/useFilterOptions";
 import { Track } from "@spotify/web-api-ts-sdk";
 import { map, startCase } from "lodash";
 import { Filter, FilterX, Play, Search, X } from "lucide-react";
@@ -27,11 +35,13 @@ function MostStreamSongs({
 }: {
   songs: MostStreamedSong[];
   filters: SongFilters;
-  setFilters: (filters: SongFilters | ((prev: SongFilters) => SongFilters)) => void;
+  setFilters: (
+    filters: SongFilters | ((prev: SongFilters) => SongFilters)
+  ) => void;
   onApplyFilters: () => void;
   isLoading?: boolean;
 }) {
-  const [openFilter, setOpenFilter] = useState(false);
+  const [openFilter, setOpenFilter] = useState(true);
   const [searchingTrack, setSearchingTrack] = useState<string | null>(null);
   const [playingTrack, setPlayingTrack] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<Track[]>([]);
@@ -45,6 +55,7 @@ function MostStreamSongs({
   >({});
   const dispatch = useAppDispatch();
   const { searchTrack } = useSpotifySearch();
+  const { filterOptions, loading: optionsLoading } = useFilterOptions();
 
   const getTrackImage = (thumbnail: string) => {
     const parser = new DOMParser();
@@ -88,41 +99,48 @@ function MostStreamSongs({
       const combinedSearchQuery = `${cleanName} ${cleanArtist}`;
       console.log("Primary search (track+artist):", combinedSearchQuery);
       const combinedResults = await searchTrack(combinedSearchQuery);
-      
+
       // Second search: Track name only (for more diverse results from different artists)
       // This shows different artists' interpretations of the same song title
       const trackNameQuery = `track:${cleanName}`;
       console.log("Secondary search (track name only):", trackNameQuery);
       const trackNameResults = await searchTrack(trackNameQuery);
-      
+
       // Combine results, taking first 5 from combined search and up to 4 from track name search
       // We need to filter duplicates more carefully, considering both track ID and name/artist
       const primaryResults = combinedResults?.slice(0, 5) || [];
-      
+
       // Create a set of track IDs from primary results
-      const primaryIds = new Set(primaryResults.map(track => track.id));
-      
+      const primaryIds = new Set(primaryResults.map((track) => track.id));
+
       // Also track name+artist combinations to catch duplicates that might have different IDs
       const trackSignatures = new Set(
-        primaryResults.map(track => `${track.name?.toLowerCase() || ''}:${track.artists[0]?.name?.toLowerCase() || ''}`)
+        primaryResults.map(
+          (track) =>
+            `${track.name?.toLowerCase() || ""}:${
+              track.artists[0]?.name?.toLowerCase() || ""
+            }`
+        )
       );
-      
+
       // Filter secondary results to remove both exact ID duplicates and similar tracks
       const secondaryResults = (trackNameResults || [])
-        .filter(track => {
+        .filter((track) => {
           // Check if this track ID is already in primary results
           if (primaryIds.has(track.id)) return false;
-          
+
           // Check if there's a track with same name and artist (might be different version)
-          const signature = `${track.name?.toLowerCase() || ''}:${track.artists[0]?.name?.toLowerCase() || ''}`;
+          const signature = `${track.name?.toLowerCase() || ""}:${
+            track.artists[0]?.name?.toLowerCase() || ""
+          }`;
           if (trackSignatures.has(signature)) return false;
-          
+
           // Track is unique, add its signature to the set for future checks
           trackSignatures.add(signature);
           return true;
         })
         .slice(0, 4);
-      
+
       // Combine the results
       const mergedResults = [...primaryResults, ...secondaryResults];
 
@@ -225,7 +243,7 @@ function MostStreamSongs({
         const cleanName = track.name?.replace(/<[^>]*>?/gm, "").trim() || "";
         const cleanArtist =
           track.artist?.replace(/<[^>]*>?/gm, "").trim() || "";
-        
+
         if (!searchTrack) {
           throw new Error("Search function not available");
         }
@@ -240,33 +258,40 @@ function MostStreamSongs({
           // Search by track name only to find different artists' interpretations
           const trackNameQuery = `track:${cleanName}`;
           const trackNameResults = await searchTrack(trackNameQuery);
-          
+
           // Combine results as we do in handleSearchTrack
           const primaryResults = results.slice(0, 5);
-          
+
           // Use the improved duplicate detection logic
-          const primaryIds = new Set(primaryResults.map(track => track.id));
-          
+          const primaryIds = new Set(primaryResults.map((track) => track.id));
+
           // Also track name+artist combinations to catch duplicates with different IDs
           const trackSignatures = new Set(
-            primaryResults.map(track => `${track.name?.toLowerCase() || ''}:${track.artists[0]?.name?.toLowerCase() || ''}`)
+            primaryResults.map(
+              (track) =>
+                `${track.name?.toLowerCase() || ""}:${
+                  track.artists[0]?.name?.toLowerCase() || ""
+                }`
+            )
           );
-          
+
           const secondaryResults = (trackNameResults || [])
-            .filter(track => {
+            .filter((track) => {
               // Check if this track ID is already in primary results
               if (primaryIds.has(track.id)) return false;
-              
+
               // Check if there's a track with same name and artist (might be different version)
-              const signature = `${track.name?.toLowerCase() || ''}:${track.artists[0]?.name?.toLowerCase() || ''}`;
+              const signature = `${track.name?.toLowerCase() || ""}:${
+                track.artists[0]?.name?.toLowerCase() || ""
+              }`;
               if (trackSignatures.has(signature)) return false;
-              
+
               // Track is unique, add its signature to the set for future checks
               trackSignatures.add(signature);
               return true;
             })
             .slice(0, 4);
-          
+
           const mergedResults = [...primaryResults, ...secondaryResults];
 
           // Cache the combined results
@@ -302,6 +327,13 @@ function MostStreamSongs({
       <h2 className="text-2xl text-white font-bold">Most Streamed Songs</h2>
       <div className="w-full flex flex-row justify-between">
         <div className="flex flex-row space-x-2 items-center">
+          {/* Check if all main filters are set to default values (all years, all languages, all genres) */}
+          {!filters.year && !filters.language && !filters.genre && !filters.name && !filters.artist && (
+            <Badge className="font-medium text-white bg-blue-600" variant="outline">
+              All-time
+            </Badge>
+          )}
+          
           {Object.entries(filters).map(([key, value]) => (
             <div key={key} className="flex flex-row space-x-1">
               {key === "limit" && (
@@ -334,123 +366,172 @@ function MostStreamSongs({
       </div>
       {openFilter && (
         <div className="w-full flex flex-row space-x-2 transition-all duration-300">
-          <form 
-            className="w-full" 
+          <form
+            className="w-full"
             onSubmit={(e) => {
               e.preventDefault();
               onApplyFilters();
             }}
           >
             <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            <div className="relative">
-              <Input
-                className="user-select-none pr-10"
-                type="text"
-                placeholder="Search by name"
-                value={filters.name || ""}
-                onChange={(e) => {
-                  const name = e.target.value;
-                  // Just update local state but don't trigger filtering yet
-                  setFilters((prev) => ({
-                    ...prev,
-                    name: name === "" ? undefined : name,
-                  }));
-                }}
-              />
-            </div>
-            <div className="relative">
-              <Input
-                className="pr-10"
-                type="text"
-                placeholder="Search by artist, comma separated"
-                value={filters.artist || ""}
-                onChange={(e) => {
-                  const names = e.target.value;
-                  setFilters((prev) => ({
-                    ...prev,
-                    artist: names === "" ? undefined : names,
-                  }));
-                }}
-              />
-            </div>
-            <div className="relative">
-              <Input
-                className="pr-10"
-                type="text"
-                placeholder="Search by genre, comma separated"
-                value={filters.genre ? filters.genre.join(",") : ""}
-                onChange={(e) => {
-                  const genre = e.target.value;
-                  setFilters((prev) => ({
-                    ...prev,
-                    genre:
-                      genre === "" ? undefined : Array.from(genre.split(",")),
-                  }));
-                }}
-              />
-            </div>
-            <div className="relative">
-              <Input
-                className="pr-10"
-                type="text"
-                placeholder="Search by year"
-                value={filters.year || ""}
-                onChange={(e) => {
-                  const year = e.target.value;
-                  setFilters((prev) => ({
-                    ...prev,
-                    year: year === "" ? undefined : year,
-                  }));
-                }}
-              />
-            </div>
-            <div className="relative">
-              <Input
-                className="pr-10"
-                type="text"
-                placeholder="Search by language, comma separated"
-                value={filters.language ? filters.language.join(",") : ""}
-                onChange={(e) => {
-                  const language = e.target.value;
-                  setFilters((prev) => ({
-                    ...prev,
-                    language:
-                      language === ""
-                        ? undefined
-                        : Array.from(language.split(",")),
-                  }));
-                }}
-              />
-            </div>
-            <div className="flex space-x-2">
-              <Input
-                className="pr-10"
-                type="number"
-                placeholder="Number of songs"
-                value={filters.limit || ""}
-                onChange={(e) => {
-                  const limit = e.target.value;
-                  setFilters((prev) => ({
-                    ...prev,
-                    limit: limit === "" ? undefined : Number(limit),
-                  }));
-                }}
-              />
-              <Button 
-                className="bg-green-600 hover:bg-green-700 text-white"
-                onClick={onApplyFilters}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
-                    Searching...
-                  </>
-                ) : (
-                  'Search'
-                )}
-              </Button>
-            </div>
+              <div className="relative">
+                <Input
+                  className="user-select-none pr-10"
+                  type="text"
+                  placeholder="Search by name"
+                  value={filters.name || ""}
+                  onChange={(e) => {
+                    const name = e.target.value;
+                    setFilters((prev) => ({
+                      ...prev,
+                      name: name === "" ? undefined : name,
+                    }));
+                  }}
+                />
+              </div>
+              <div className="relative">
+                <Input
+                  className="pr-10"
+                  type="text"
+                  placeholder="Search by artist"
+                  value={filters.artist || ""}
+                  onChange={(e) => {
+                    const names = e.target.value;
+                    setFilters((prev) => ({
+                      ...prev,
+                      artist: names === "" ? undefined : names,
+                    }));
+                  }}
+                />
+              </div>
+              <div className="relative">
+                <Select
+                  value={filters.genre?.[0] || "all-genres"}
+                  onValueChange={(value) => {
+                    setFilters((prev) => ({
+                      ...prev,
+                      genre: value === "all-genres" ? undefined : [value],
+                    }));
+                  }}
+                  disabled={optionsLoading}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select genre" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-900 border-gray-700 text-white max-h-60">
+                    <SelectItem
+                      value="all-genres"
+                      className="text-white hover:bg-gray-800"
+                    >
+                      All Genres
+                    </SelectItem>
+                    {filterOptions.genres.map((genre) => (
+                      <SelectItem
+                        key={genre}
+                        value={genre}
+                        className="text-white hover:bg-gray-800"
+                      >
+                        {genre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="relative">
+                <Select
+                  value={filters.year || "all-years"}
+                  onValueChange={(value) => {
+                    setFilters((prev) => ({
+                      ...prev,
+                      year: value === "all-years" ? undefined : value,
+                    }));
+                  }}
+                  disabled={optionsLoading}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select year" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-900 border-gray-700 text-white max-h-60">
+                    <SelectItem
+                      value="all-years"
+                      className="text-white hover:bg-gray-800"
+                    >
+                      All Years
+                    </SelectItem>
+                    {filterOptions.years.map((year) => (
+                      <SelectItem
+                        key={year}
+                        value={year}
+                        className="text-white hover:bg-gray-800"
+                      >
+                        {year}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="relative">
+                <Select
+                  value={filters.language?.[0] || "all-languages"}
+                  onValueChange={(value) => {
+                    setFilters((prev) => ({
+                      ...prev,
+                      language: value === "all-languages" ? undefined : [value],
+                    }));
+                  }}
+                  disabled={optionsLoading}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select language" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-900 border-gray-700 text-white max-h-60">
+                    <SelectItem
+                      value="all-languages"
+                      className="text-white hover:bg-gray-800"
+                    >
+                      All Languages
+                    </SelectItem>
+                    {filterOptions.languages.map((language) => (
+                      <SelectItem
+                        key={language}
+                        value={language}
+                        className="text-white hover:bg-gray-800"
+                      >
+                        {language}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex space-x-2">
+                <Input
+                  className="pr-10"
+                  type="number"
+                  placeholder="Number of songs"
+                  value={filters.limit || ""}
+                  onChange={(e) => {
+                    const limit = e.target.value;
+                    setFilters((prev) => ({
+                      ...prev,
+                      limit: limit === "" ? undefined : Number(limit),
+                    }));
+                  }}
+                />
+                <Button
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  onClick={onApplyFilters}
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <>
+                      <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                      Searching...
+                    </>
+                  ) : (
+                    "Search"
+                  )}
+                </Button>
+              </div>
             </div>
           </form>
         </div>
@@ -466,8 +547,8 @@ function MostStreamSongs({
         ) : (
           <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
             {map(songs, (track, index) => (
-            <div
-              className={`
+              <div
+                className={`
             relative
             text-white
             font-sans
@@ -491,19 +572,19 @@ function MostStreamSongs({
             after:border-solid 
             after:border-white/50
           `}
-              style={{
-                backgroundImage: `url(${getTrackImage(
-                  String(track.thumbnail)
-                )})`,
-                backgroundPosition: "center",
-                backgroundRepeat: "no-repeat",
-                borderRadius: "0.7rem",
-              }}
-              key={track.id}
-              onClick={() => handleSearchTrack(track)}
-            >
-              <div
-                className="
+                style={{
+                  backgroundImage: `url(${getTrackImage(
+                    String(track.thumbnail)
+                  )})`,
+                  backgroundPosition: "center",
+                  backgroundRepeat: "no-repeat",
+                  borderRadius: "0.7rem",
+                }}
+                key={track.id}
+                onClick={() => handleSearchTrack(track)}
+              >
+                <div
+                  className="
               h-[14rem]
               p-4
               bg-[rgba(255,255,255,0.074)]
@@ -522,64 +603,64 @@ function MostStreamSongs({
               hover:border-[rgba(255,255,255,0.454)]
               relative
             "
-              >
-                {/* Rank number floating above the card at top left */}
-                <div className="absolute -top-2 -left-2 p-1 px-2 bg-black/70 backdrop-blur-sm rounded-full text-xs font-bold shadow-md z-10">
-                  #{index + 1}
-                </div>
+                >
+                  {/* Rank number floating above the card at top left */}
+                  <div className="absolute -top-2 -left-2 p-1 px-2 bg-black/70 backdrop-blur-sm rounded-full text-xs font-bold shadow-md z-10">
+                    #{index + 1}
+                  </div>
 
-                {searchingTrack === track.id?.toString() ? (
-                  <div className="absolute top-2 right-2 p-1 bg-black/50 backdrop-blur-sm rounded-full transition-colors opacity-100">
-                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  </div>
-                ) : (
-                  <div className="absolute top-2 right-2 p-1 bg-black/30 backdrop-blur-sm rounded-full hover:bg-black/50 transition-colors opacity-0 group-hover:opacity-100">
-                    <Search className="h-5 w-5" />
-                  </div>
-                )}
+                  {searchingTrack === track.id?.toString() ? (
+                    <div className="absolute top-2 right-2 p-1 bg-black/50 backdrop-blur-sm rounded-full transition-colors opacity-100">
+                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    </div>
+                  ) : (
+                    <div className="absolute top-2 right-2 p-1 bg-black/30 backdrop-blur-sm rounded-full hover:bg-black/50 transition-colors opacity-0 group-hover:opacity-100">
+                      <Search className="h-5 w-5" />
+                    </div>
+                  )}
 
-                {/* Play button in bottom right */}
-                {playingTrack === track.id?.toString() ? (
-                  <div className="absolute bottom-2 right-2 p-2 bg-green-600/90 backdrop-blur-sm rounded-full transition-colors opacity-100 z-10">
-                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  </div>
-                ) : (
-                  <div
-                    className="absolute bottom-2 right-2 p-2 bg-green-500/80 backdrop-blur-sm rounded-full hover:bg-green-600 transition-colors opacity-0 group-hover:opacity-100 cursor-pointer z-10"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                      directPlay(track);
-                    }}
-                  >
-                    <Play className="h-5 w-5" />
-                  </div>
-                )}
+                  {/* Play button in bottom right */}
+                  {playingTrack === track.id?.toString() ? (
+                    <div className="absolute bottom-2 right-2 p-2 bg-green-600/90 backdrop-blur-sm rounded-full transition-colors opacity-100 z-10">
+                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    </div>
+                  ) : (
+                    <div
+                      className="absolute bottom-2 right-2 p-2 bg-green-500/80 backdrop-blur-sm rounded-full hover:bg-green-600 transition-colors opacity-0 group-hover:opacity-100 cursor-pointer z-10"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        directPlay(track);
+                      }}
+                    >
+                      <Play className="h-5 w-5" />
+                    </div>
+                  )}
 
-                <span className="text-2xl font-medium line-clamp-3 text-ellipsis overflow-hidden">
-                  {track.name}
-                </span>
-                <div>
-                  <strong className="block mb-2 line-clamp-3 text-ellipsis overflow-hidden">
-                    {track.artist}
-                  </strong>
-                  <p className="m-0 text-[0.7em] font-light">
-                    {track.streamCount
-                      ? `${new Intl.NumberFormat("de-DE").format(
-                          track.streamCount
-                        )} streams`
-                      : ""}
-                  </p>
-                  <span className="text-[0.8rem] font-light mr-[0.2rem]">
-                    {track.genre}
+                  <span className="text-2xl font-medium line-clamp-3 text-ellipsis overflow-hidden">
+                    {track.name}
                   </span>
-                  <span className="text-[0.6rem] font-light">
-                    | {track.year}
-                  </span>
+                  <div>
+                    <strong className="block mb-2 line-clamp-3 text-ellipsis overflow-hidden">
+                      {track.artist}
+                    </strong>
+                    <p className="m-0 text-[0.7em] font-light">
+                      {track.streamCount
+                        ? `${new Intl.NumberFormat("de-DE").format(
+                            track.streamCount
+                          )} streams`
+                        : ""}
+                    </p>
+                    <span className="text-[0.8rem] font-light mr-[0.2rem]">
+                      {track.genre}
+                    </span>
+                    <span className="text-[0.6rem] font-light">
+                      | {track.year}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
           </div>
         )}
       </div>
