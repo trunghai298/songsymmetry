@@ -225,6 +225,18 @@ export class CachedSpotifyClient {
   }
 
   /**
+   * Get current user playlists (owned or followed) with caching
+   */
+  async getCurrentUserPlaylists(limit: MaxInt<50> = 50 as MaxInt<50>, offset = 0) {
+    return this.cachedRequest(
+      "getCurrentUserPlaylists",
+      () => this.client.currentUser.playlists.playlists(limit, offset),
+      [limit, offset],
+      1000 * 60 * 5 // 5 minute cache
+    );
+  }
+
+  /**
    * Get currently playing track - no caching as it's real-time
    */
   async getCurrentlyPlayingTrack() {
