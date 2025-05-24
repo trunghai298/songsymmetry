@@ -2,11 +2,14 @@
 
 import React, { useState, useEffect } from "react";
 import Container from "../components/core/Container";
-import { getMostStreamedSongs } from "./actions";
+import { getMostStreamedSongs, getMostStreamedAlbums, getAlbumFilterOptions } from "./actions";
 import MostStreamSongs from "./MostStreamSongs";
+import MostStreamedAlbums from "./MostStreamedAlbums";
 import { MostStreamedSong, SongFilters } from "@/types/song";
 import { useAppSelector } from "@/lib/redux/hooks";
 import { selectPlayerTrack } from "@/lib/redux/selectors";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Music, Disc3 } from "lucide-react";
 
 const WelcomeSection = () => {
   return (
@@ -28,18 +31,73 @@ const WelcomeSection = () => {
   );
 };
 
+interface MostStreamedAlbum {
+  id: number;
+  albName: string | null;
+  artist: string | null;
+  thumbnail: string | null;
+  albType: string | null;
+  streamCount: bigint | null;
+  dailyStreamCount: bigint | null;
+  genre: string | null;
+  language: string | null;
+  year: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface AlbumFilters {
+  limit: number;
+  year: string;
+  genre: string;
+  language: string;
+  artist: string;
+}
+
 function Explore() {
-  // Split filters into state and applied filters
-  const [filterState, setFilterState] = useState<SongFilters>({
+  // Songs state
+  const [songFilterState, setSongFilterState] = useState<SongFilters>({
     limit: 50,
     year: "",
   });
-  const [appliedFilters, setAppliedFilters] = useState<SongFilters>({
+  const [appliedSongFilters, setAppliedSongFilters] = useState<SongFilters>({
     limit: 50,
     year: "",
   });
   const [topSongs, setTopSongs] = useState<MostStreamedSong[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSongsLoading, setIsSongsLoading] = useState(false);
+
+  // Albums state
+  const [albumFilterState, setAlbumFilterState] = useState<AlbumFilters>({
+    limit: 50,
+    year: "",
+    genre: "",
+    language: "",
+    artist: "",
+  });
+  const [appliedAlbumFilters, setAppliedAlbumFilters] = useState<AlbumFilters>({
+    limit: 50,
+    year: "",
+    genre: "",
+    language: "",
+    artist: "",
+  });
+  const [topAlbums, setTopAlbums] = useState<MostStreamedAlbum[]>([]);
+  const [isAlbumsLoading, setIsAlbumsLoading] = useState(false);
+  const [albumFilterOptions, setAlbumFilterOptions] = useState<{
+    years: string[];
+    genres: string[];
+    languages: string[];
+    artists: string[];
+  }>({
+    years: [],
+    genres: [],
+    languages: [],
+    artists: [],
+  });
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState("songs");
 
   // Get current playing track from Redux
   const currentTrack = useAppSelector(selectPlayerTrack);
@@ -48,30 +106,66 @@ function Explore() {
     useState<string>("");
   const [isTransitioning, setIsTransitioning] = useState(false);
 
-  // Non-debounced fetch function - will only be called when search button is clicked
+  // Fetch functions
   const fetchTopSongs = async (filters: SongFilters) => {
-    setIsLoading(true);
+    setIsSongsLoading(true);
     try {
       const data = await getMostStreamedSongs(filters);
       setTopSongs(data);
     } catch (error) {
       console.error("Error fetching songs:", error);
     } finally {
-      setIsLoading(false);
+      setIsSongsLoading(false);
     }
   };
 
-  // Apply the filters when search button is clicked
-  const handleApplyFilters = () => {
-    console.log("Applying filters:", filterState);
-    setAppliedFilters(filterState);
+  const fetchTopAlbums = async (filters: AlbumFilters) => {
+    setIsAlbumsLoading(true);
+    try {
+      const data = await getMostStreamedAlbums(filters);
+      setTopAlbums(data);
+    } catch (error) {
+      console.error("Error fetching albums:", error);
+    } finally {
+      setIsAlbumsLoading(false);
+    }
   };
 
-  // Only fetch when applied filters change (when search button is clicked)
+  const fetchAlbumFilterOptions = async () => {
+    try {
+      const options = await getAlbumFilterOptions();
+      setAlbumFilterOptions(options);
+    } catch (error) {
+      console.error("Error fetching album filter options:", error);
+    }
+  };
+
+  // Apply filter handlers
+  const handleApplySongFilters = () => {
+    console.log("Applying song filters:", songFilterState);
+    setAppliedSongFilters(songFilterState);
+  };
+
+  const handleApplyAlbumFilters = () => {
+    console.log("Applying album filters:", albumFilterState);
+    setAppliedAlbumFilters(albumFilterState);
+  };
+
+  // Fetch data when applied filters change
   useEffect(() => {
-    console.log("Fetching top songs with applied filters", appliedFilters);
-    fetchTopSongs(appliedFilters);
-  }, [appliedFilters]);
+    console.log("Fetching top songs with applied filters", appliedSongFilters);
+    fetchTopSongs(appliedSongFilters);
+  }, [appliedSongFilters]);
+
+  useEffect(() => {
+    console.log("Fetching top albums with applied filters", appliedAlbumFilters);
+    fetchTopAlbums(appliedAlbumFilters);
+  }, [appliedAlbumFilters]);
+
+  // Fetch album filter options on mount
+  useEffect(() => {
+    fetchAlbumFilterOptions();
+  }, []);
 
   // Update background when current track changes
   useEffect(() => {
@@ -181,13 +275,49 @@ function Explore() {
 
         <Container>
           <WelcomeSection />
-          <MostStreamSongs
-            songs={topSongs}
-            filters={filterState}
-            setFilters={setFilterState}
-            onApplyFilters={handleApplyFilters}
-            isLoading={isLoading}
-          />
+          
+          {/* Tabs */}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <div className="flex justify-center mb-8">
+              <TabsList className="bg-gray-800 border border-gray-700">
+                <TabsTrigger 
+                  value="songs" 
+                  className="flex items-center gap-2 data-[state=active]:bg-gray-700 data-[state=active]:text-white text-gray-400"
+                >
+                  <Music className="w-4 h-4" />
+                  Most Streamed Songs
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="albums" 
+                  className="flex items-center gap-2 data-[state=active]:bg-gray-700 data-[state=active]:text-white text-gray-400"
+                >
+                  <Disc3 className="w-4 h-4" />
+                  Most Streamed Albums
+                </TabsTrigger>
+              </TabsList>
+            </div>
+
+            <TabsContent value="songs" className="mt-0">
+              <MostStreamSongs
+                songs={topSongs}
+                filters={songFilterState}
+                setFilters={setSongFilterState}
+                onApplyFilters={handleApplySongFilters}
+                isLoading={isSongsLoading}
+              />
+            </TabsContent>
+
+            <TabsContent value="albums" className="mt-0">
+              <MostStreamedAlbums
+                albums={topAlbums}
+                filters={albumFilterState}
+                setFilters={setAlbumFilterState}
+                onApplyFilters={handleApplyAlbumFilters}
+                isLoading={isAlbumsLoading}
+                filterOptions={albumFilterOptions}
+              />
+            </TabsContent>
+          </Tabs>
         </Container>
       </div>
     </div>

@@ -92,18 +92,28 @@ export function usePlayer() {
   }, [dispatch]);
 
   // Spotify Web API playback controls
-  const startPlayback = useCallback(async (uris?: string[], deviceId?: string) => {
+  const startPlayback = useCallback(async (
+    uris?: string[], 
+    deviceId?: string, 
+    contextUri?: string, 
+    offset?: { position?: number; uri?: string }
+  ) => {
     try {
       if (!spotify) {
         console.error('Spotify client not available');
         throw new Error('Spotify client not available');
       }
 
-      console.log('Starting playback with uris:', uris, 'deviceId:', deviceId);
+      console.log('Starting playback:', { uris, deviceId, contextUri, offset });
 
-      if (uris && uris.length > 0) {
+      if (contextUri) {
+        // Play album/playlist with context
+        await spotify.startResumePlayback(deviceId || '', contextUri, undefined, offset);
+      } else if (uris && uris.length > 0) {
+        // Play specific tracks
         await spotify.startResumePlayback(deviceId || '', undefined, uris);
       } else {
+        // Resume current playback
         await spotify.startResumePlayback(deviceId || '');
       }
       

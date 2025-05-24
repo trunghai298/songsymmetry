@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -43,7 +43,8 @@ function MostStreamSongs({
   onApplyFilters: () => void;
   isLoading?: boolean;
 }) {
-  const [openFilter, setOpenFilter] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const [searchingTrack, setSearchingTrack] = useState<string | null>(null);
   const [playingTrack, setPlayingTrack] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<Track[]>([]);
@@ -686,225 +687,339 @@ function MostStreamSongs({
     }
   };
 
+  // Clear specific filter
+  const clearFilter = (filterKey: keyof SongFilters) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterKey]: filterKey === 'limit' ? 50 : filterKey === 'genre' || filterKey === 'language' ? undefined : ""
+    }));
+  };
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    setFilters({
+      limit: 50,
+      year: "",
+      genre: undefined,
+      language: undefined,
+      artist: "",
+      name: "",
+    });
+    setSearchTerm("");
+  };
+
+  // Check if any filters are applied
+  const hasActiveFilters = filters.year || filters.genre || filters.language || filters.artist || filters.name || searchTerm;
+
+  // Filter songs based on search term
+  const filteredSongs = songs.filter(song => {
+    if (!searchTerm) return true;
+    const search = searchTerm.toLowerCase();
+    return (
+      (song.name && song.name.toLowerCase().includes(search)) ||
+      (song.artist && song.artist.toLowerCase().includes(search)) ||
+      (song.genre && song.genre.toLowerCase().includes(search)) ||
+      (song.year && song.year.toLowerCase().includes(search))
+    );
+  });
+
   return (
-    <div className="w-full flex flex-col space-y-4 relative">
-      <h2 className="text-2xl text-white font-bold">Most Streamed Songs</h2>
-      
-      {/* Main Control Panel */}
-      <div className="w-full">
-        {/* Left Section - Filters & Search (Full Width) */}
-        <div className="w-full flex flex-col space-y-4">
-          {/* Filter Status Badges */}
-          <div className="flex flex-row space-x-2 items-center flex-wrap">
-            {/* Check if all main filters are set to default values */}
-            {!filters.year && !filters.language && !filters.genre && !filters.name && !filters.artist && (
-              <Badge className="font-medium text-white bg-blue-600" variant="outline">
-                All-time
-              </Badge>
-            )}
-            
-            {Object.entries(filters).map(([key, value]) => (
-              <div key={key} className="flex flex-row space-x-1">
-                {key === "limit" && (
-                  <Badge className="font-medium text-white" variant="outline">
-                    Total Songs: {songs.length}
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-white">Most Streamed Songs</h2>
+          <Button
+            variant="outline"
+            onClick={() => setShowFilters(!showFilters)}
+            className="gap-2 bg-gray-800 border-gray-700 text-white hover:bg-gray-700"
+          >
+            <Filter className="w-4 h-4" />
+            Filters
+          </Button>
+        </div>
+
+        {/* Search Bar */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <Input
+            type="text"
+            placeholder="Search songs, artists, genres..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 bg-gray-800 border-gray-700 text-white placeholder-gray-400"
+          />
+          {searchTerm && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSearchTerm("")}
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 h-auto text-gray-400 hover:text-white"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Filters */}
+      {showFilters && (
+        <Card className="bg-gray-800 border-gray-700">
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Song Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Song Name
+                </label>
+                <Input
+                  type="text"
+                  placeholder="Search by name"
+                  value={filters.name || ""}
+                  onChange={(e) => {
+                    const name = e.target.value;
+                    setFilters((prev) => ({
+                      ...prev,
+                      name: name === "" ? "" : name,
+                    }));
+                  }}
+                  className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                />
+              </div>
+
+              {/* Artist */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Artist
+                </label>
+                <Input
+                  type="text"
+                  placeholder="Search by artist"
+                  value={filters.artist || ""}
+                  onChange={(e) => {
+                    const artist = e.target.value;
+                    setFilters((prev) => ({
+                      ...prev,
+                      artist: artist === "" ? "" : artist,
+                    }));
+                  }}
+                  className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                />
+              </div>
+
+              {/* Genre */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Genre
+                </label>
+                <Select
+                  value={filters.genre?.[0] || "all-genres"}
+                  onValueChange={(value) => {
+                    setFilters((prev) => ({
+                      ...prev,
+                      genre: value === "all-genres" ? undefined : [value],
+                    }));
+                  }}
+                  disabled={optionsLoading}
+                >
+                  <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
+                    <SelectValue placeholder="All genres" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-700 border-gray-600">
+                    <SelectItem value="all-genres">All genres</SelectItem>
+                    {filterOptions.genres.map((genre) => (
+                      <SelectItem key={genre} value={genre}>
+                        {startCase(genre)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Year */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Year
+                </label>
+                <Select
+                  value={filters.year || "all-years"}
+                  onValueChange={(value) => {
+                    setFilters((prev) => ({
+                      ...prev,
+                      year: value === "all-years" ? "" : value,
+                    }));
+                  }}
+                  disabled={optionsLoading}
+                >
+                  <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
+                    <SelectValue placeholder="All years" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-700 border-gray-600">
+                    <SelectItem value="all-years">All years</SelectItem>
+                    {filterOptions.years.map((year) => (
+                      <SelectItem key={year} value={year}>
+                        {year}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Language */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Language
+                </label>
+                <Select
+                  value={filters.language?.[0] || "all-languages"}
+                  onValueChange={(value) => {
+                    setFilters((prev) => ({
+                      ...prev,
+                      language: value === "all-languages" ? undefined : [value],
+                    }));
+                  }}
+                  disabled={optionsLoading}
+                >
+                  <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
+                    <SelectValue placeholder="All languages" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-700 border-gray-600">
+                    <SelectItem value="all-languages">All languages</SelectItem>
+                    {filterOptions.languages.map((language) => (
+                      <SelectItem key={language} value={language}>
+                        {startCase(language)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Limit */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Results Limit
+                </label>
+                <Select
+                  value={filters.limit?.toString() || "50"}
+                  onValueChange={(value) => setFilters(prev => ({ ...prev, limit: parseInt(value) }))}
+                >
+                  <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-700 border-gray-600">
+                    <SelectItem value="25">25 songs</SelectItem>
+                    <SelectItem value="50">50 songs</SelectItem>
+                    <SelectItem value="100">100 songs</SelectItem>
+                    <SelectItem value="200">200 songs</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Filter Actions */}
+            <div className="flex items-center justify-between mt-6">
+              <div className="flex flex-wrap gap-2">
+                {hasActiveFilters && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={clearAllFilters}
+                    className="gap-2 bg-gray-700 border-gray-600 text-white hover:bg-gray-600"
+                  >
+                    <FilterX className="w-4 h-4" />
+                    Clear All
+                  </Button>
+                )}
+                
+                {/* Individual filter badges */}
+                {filters.name && (
+                  <Badge 
+                    variant="secondary" 
+                    className="gap-1 bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
+                    onClick={() => clearFilter('name')}
+                  >
+                    Name: {filters.name}
+                    <X className="w-3 h-3" />
                   </Badge>
                 )}
-                {key !== "limit" && value && (
-                  <Badge className="font-medium text-white" variant="outline">
-                    {startCase(key)} :{" "}
-                    {typeof value === "object" ? value.join(", ") : value}
+                
+                {filters.artist && (
+                  <Badge 
+                    variant="secondary" 
+                    className="gap-1 bg-purple-600 text-white hover:bg-purple-700 cursor-pointer"
+                    onClick={() => clearFilter('artist')}
+                  >
+                    Artist: {filters.artist}
+                    <X className="w-3 h-3" />
+                  </Badge>
+                )}
+                
+                {filters.year && (
+                  <Badge 
+                    variant="secondary" 
+                    className="gap-1 bg-yellow-600 text-white hover:bg-yellow-700 cursor-pointer"
+                    onClick={() => clearFilter('year')}
+                  >
+                    Year: {filters.year}
+                    <X className="w-3 h-3" />
+                  </Badge>
+                )}
+                
+                {filters.genre && (
+                  <Badge 
+                    variant="secondary" 
+                    className="gap-1 bg-green-600 text-white hover:bg-green-700 cursor-pointer"
+                    onClick={() => clearFilter('genre')}
+                  >
+                    Genre: {startCase(filters.genre[0])}
+                    <X className="w-3 h-3" />
+                  </Badge>
+                )}
+                
+                {filters.language && (
+                  <Badge 
+                    variant="secondary" 
+                    className="gap-1 bg-red-600 text-white hover:bg-red-700 cursor-pointer"
+                    onClick={() => clearFilter('language')}
+                  >
+                    Language: {startCase(filters.language[0])}
+                    <X className="w-3 h-3" />
                   </Badge>
                 )}
               </div>
-            ))}
-            
-            {/* Filter Toggle */}
+
+              <Button
+                onClick={onApplyFilters}
+                className="bg-green-600 hover:bg-green-700 text-white"
+                disabled={isLoading}
+              >
+                {isLoading ? "Searching..." : "Apply Filters"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Results Info */}
+      <div className="flex items-center justify-between">
+        <p className="text-gray-400">
+          {filteredSongs.length} songs found
+          {hasActiveFilters && ` (filtered from ${songs.length})`}
+        </p>
+        
+        {filteredSongs.length > 0 && (
+          <div className="flex gap-2">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setOpenFilter(!openFilter)}
-              className="bg-transparent border-gray-500 text-gray-300 hover:bg-gray-800"
+              className="gap-2 bg-gray-800 border-gray-700 text-white hover:bg-gray-700"
+              onClick={() => setShowPlaylistDialog(true)}
             >
-              {openFilter ? <FilterX className="w-4 h-4" /> : <Filter className="w-4 h-4" />}
-              {openFilter ? "Hide Filters" : "Show Filters"}
+              <Plus className="w-4 h-4" />
+              Create Playlist
             </Button>
           </div>
-
-          {/* Search and Filter Forms - Moved here from bottom */}
-          {openFilter && (
-            <div className="w-full transition-all duration-300">
-              <form
-                className="w-full"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  onApplyFilters();
-                }}
-              >
-                <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  <div className="relative">
-                    <Input
-                      className="user-select-none pr-10"
-                      type="text"
-                      placeholder="Search by name"
-                      value={filters.name || ""}
-                      onChange={(e) => {
-                        const name = e.target.value;
-                        setFilters((prev) => ({
-                          ...prev,
-                          name: name === "" ? undefined : name,
-                        }));
-                      }}
-                    />
-                  </div>
-                  <div className="relative">
-                    <Input
-                      className="pr-10"
-                      type="text"
-                      placeholder="Search by artist"
-                      value={filters.artist || ""}
-                      onChange={(e) => {
-                        const names = e.target.value;
-                        setFilters((prev) => ({
-                          ...prev,
-                          artist: names === "" ? undefined : names,
-                        }));
-                      }}
-                    />
-                  </div>
-                  <div className="relative">
-                    <Select
-                      value={filters.genre?.[0] || "all-genres"}
-                      onValueChange={(value) => {
-                        setFilters((prev) => ({
-                          ...prev,
-                          genre: value === "all-genres" ? undefined : [value],
-                        }));
-                      }}
-                      disabled={optionsLoading}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select genre" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-gray-900 border-gray-700 text-white max-h-60">
-                        <SelectItem
-                          value="all-genres"
-                          className="text-white hover:bg-gray-800"
-                        >
-                          All Genres
-                        </SelectItem>
-                        {filterOptions.genres.map((genre) => (
-                          <SelectItem
-                            key={genre}
-                            value={genre}
-                            className="text-white hover:bg-gray-800"
-                          >
-                            {genre}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="relative">
-                    <Select
-                      value={filters.year || "all-years"}
-                      onValueChange={(value) => {
-                        setFilters((prev) => ({
-                          ...prev,
-                          year: value === "all-years" ? undefined : value,
-                        }));
-                      }}
-                      disabled={optionsLoading}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select year" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-gray-900 border-gray-700 text-white max-h-60">
-                        <SelectItem
-                          value="all-years"
-                          className="text-white hover:bg-gray-800"
-                        >
-                          All Years
-                        </SelectItem>
-                        {filterOptions.years.map((year) => (
-                          <SelectItem
-                            key={year}
-                            value={year}
-                            className="text-white hover:bg-gray-800"
-                          >
-                            {year}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="relative">
-                    <Select
-                      value={filters.language?.[0] || "all-languages"}
-                      onValueChange={(value) => {
-                        setFilters((prev) => ({
-                          ...prev,
-                          language: value === "all-languages" ? undefined : [value],
-                        }));
-                      }}
-                      disabled={optionsLoading}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select language" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-gray-900 border-gray-700 text-white max-h-60">
-                        <SelectItem
-                          value="all-languages"
-                          className="text-white hover:bg-gray-800"
-                        >
-                          All Languages
-                        </SelectItem>
-                        {filterOptions.languages.map((language) => (
-                          <SelectItem
-                            key={language}
-                            value={language}
-                            className="text-white hover:bg-gray-800"
-                          >
-                            {language}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex space-x-2">
-                    <Input
-                      className="pr-10"
-                      type="number"
-                      placeholder="Number of songs"
-                      value={filters.limit || ""}
-                      onChange={(e) => {
-                        const limit = e.target.value;
-                        setFilters((prev) => ({
-                          ...prev,
-                          limit: limit === "" ? undefined : Number(limit),
-                        }));
-                      }}
-                    />
-                    <Button
-                      className="bg-green-600 hover:bg-green-700 text-white"
-                      onClick={onApplyFilters}
-                      disabled={isLoading}
-                    >
-                      {isLoading ? (
-                        <>
-                          <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
-                          Searching...
-                        </>
-                      ) : (
-                        "Search"
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              </form>
-            </div>
-          )}
-        </div>
+        )}
       </div>
       
       {/* Playlist Creation Dialog */}
@@ -942,17 +1057,25 @@ function MostStreamSongs({
           </div>
         </DialogContent>
       </Dialog>
-      <div className="flex flex-row space-x-2">
-        {isLoading ? (
-          <div className="w-full flex items-center justify-center mt-12 mb-12">
-            <div className="flex flex-col items-center">
-              <div className="h-12 w-12 animate-spin rounded-full border-4 border-green-500 border-t-transparent"></div>
-              <p className="text-white mt-4">Loading songs...</p>
-            </div>
-          </div>
-        ) : (
-          <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-            {map(songs, (track, index) => (
+      {/* Songs Grid */}
+      {isLoading ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+          {[...Array(12)].map((_, i) => (
+            <Card key={i} className="bg-gray-800 border-gray-700 animate-pulse">
+              <CardContent className="p-4">
+                <div className="aspect-square bg-gray-700 rounded-lg mb-4"></div>
+                <div className="space-y-2">
+                  <div className="h-4 bg-gray-700 rounded w-3/4"></div>
+                  <div className="h-3 bg-gray-700 rounded w-1/2"></div>
+                  <div className="h-3 bg-gray-700 rounded w-1/4"></div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+          {map(filteredSongs, (track, index) => (
               <div
                 className={`
             relative
@@ -1067,9 +1190,28 @@ function MostStreamSongs({
                 </div>
               </div>
             ))}
-          </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* No Results */}
+      {!isLoading && filteredSongs.length === 0 && (
+        <div className="text-center py-12">
+          <Music className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-gray-300 mb-2">No songs found</h3>
+          <p className="text-gray-500 mb-4">
+            Try adjusting your search criteria or filters
+          </p>
+          {hasActiveFilters && (
+            <Button
+              variant="outline"
+              onClick={clearAllFilters}
+              className="bg-gray-800 border-gray-700 text-white hover:bg-gray-700"
+            >
+              Clear All Filters
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* Results Dialog */}
       <Dialog open={showResultsDialog} onOpenChange={setShowResultsDialog}>

@@ -50,6 +50,7 @@ export default function FloatingMediaPanel() {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isVisible, setIsVisible] = useState(false); // Start hidden
   const [userClosed, setUserClosed] = useState(false); // Track if user manually closed
+  const [userMinimized, setUserMinimized] = useState(false); // Track if user manually minimized
   
   // Drag states
   const [isDragging, setIsDragging] = useState(false);
@@ -72,23 +73,33 @@ export default function FloatingMediaPanel() {
       if (!userClosed) {
         setIsVisible(true);
         
-        // If there's a track in Redux store that matches current Spotify track, show expanded
-        // Otherwise, show minimized for external Spotify playback
-        if (currentPlayingTrack?.id === spotifyPlaybackState.item.id) {
-          setIsMinimized(false);
-        } else {
-          setIsMinimized(true);
+        // Only change minimized state if user hasn't manually set a preference
+        if (!userMinimized) {
+          // Only auto-minimize if this is truly external Spotify playback
+          // Check if we have any Redux track at all - if we do, keep expanded for better UX
+          if (currentPlayingTrack) {
+            // Keep expanded when we have a track in our app
+            setIsMinimized(false);
+          } else {
+            // Only minimize for truly external Spotify playback
+            setIsMinimized(true);
+          }
         }
+        // If user has manually minimized, respect that preference and don't change it
       }
     }
-  }, [spotifyPlaybackState?.item, isPlaying, spotifyPlaybackState?.is_playing, currentPlayingTrack, userClosed]);
+  }, [spotifyPlaybackState?.item, isPlaying, spotifyPlaybackState?.is_playing, currentPlayingTrack, userClosed, userMinimized]);
 
-  // Reset userClosed when a new track starts (different track ID)
+  // Reset userClosed and userMinimized when a new track starts (different track ID)
   React.useEffect(() => {
     if (spotifyPlaybackState?.item?.id !== currentPlayingTrack?.id && spotifyPlaybackState?.item) {
       setUserClosed(false);
+      // Only reset userMinimized if this is a track initiated from our app
+      if (currentPlayingTrack) {
+        setUserMinimized(false);
+      }
     }
-  }, [spotifyPlaybackState?.item?.id, currentPlayingTrack?.id]);
+  }, [spotifyPlaybackState?.item?.id, currentPlayingTrack?.id, currentPlayingTrack]);
 
   // Format time in mm:ss
   const formatTime = (ms: number) => {
@@ -281,6 +292,7 @@ export default function FloatingMediaPanel() {
               e.stopPropagation();
               if (!hasDragged) {
                 setIsMinimized(false);
+                setUserMinimized(false); // Reset user preference when manually expanded
               }
             }}
           >
@@ -354,7 +366,10 @@ export default function FloatingMediaPanel() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setIsMinimized(true)}
+                  onClick={() => {
+                    setIsMinimized(true);
+                    setUserMinimized(true);
+                  }}
                   className="w-6 h-6 p-0 text-gray-400 hover:text-white"
                 >
                   <Minimize2 className="w-3 h-3" />

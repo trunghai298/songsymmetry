@@ -286,6 +286,32 @@ export class CachedSpotifyClient {
   }
 
   /**
+   * Albums API - direct access to albums endpoints
+   */
+  get albums() {
+    return {
+      get: async (id: string, market?: string) => {
+        const result = await this.cachedRequest(
+          "album",
+          () => this.client.albums.get(id, market as any),
+          [id, market],
+          1000 * 60 * 30 // 30 minute cache for albums
+        );
+        // Return single album, not array
+        return Array.isArray(result) ? result[0] : result;
+      },
+      getTracks: (id: string, market?: string, limit?: number, offset?: number) => {
+        return this.cachedRequest(
+          "albumTracks",
+          () => this.client.albums.tracks(id, market as any, limit as any, offset as any),
+          [id, market, limit, offset],
+          1000 * 60 * 15 // 15 minute cache for track lists
+        );
+      }
+    };
+  }
+
+  /**
    * Create a playlist - no caching as it's an action
    */
   async createPlaylist(userId: string, data: any) {
