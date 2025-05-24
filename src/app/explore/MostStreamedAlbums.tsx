@@ -22,6 +22,8 @@ import { Track, Album } from "@spotify/web-api-ts-sdk";
 import { map, startCase } from "lodash";
 import { Filter, FilterX, Play, Search, X, Pause, SkipForward, SkipBack, Clock, Music, List, Plus, Shuffle, ExternalLink, PlayCircle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useAuthModal } from "@/hooks/useAuthModal";
+import LoginModal from "../components/core/LoginModal";
 
 interface MostStreamedAlbum {
   id: number;
@@ -79,6 +81,12 @@ function MostStreamedAlbums({
 
   const [searchTerm, setSearchTerm] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  
+  // Auth modal for interactive features
+  const { requireAuth, authModalProps } = useAuthModal({
+    feature: "play albums and navigate to album pages",
+    message: "Sign in with Spotify to play albums, view album details, and access interactive features"
+  });
 
   // Get available devices
   const getAvailableDevices = async () => {
@@ -129,6 +137,11 @@ function MostStreamedAlbums({
 
   // Play album
   const playAlbum = async (album: MostStreamedAlbum) => {
+    // Check authentication before allowing play
+    if (!requireAuth()) {
+      return;
+    }
+
     try {
       if (!album.albName || !album.artist) {
         toast({
@@ -186,6 +199,11 @@ function MostStreamedAlbums({
 
   // Navigate to album page
   const goToAlbum = async (album: MostStreamedAlbum) => {
+    // Check authentication before allowing navigation
+    if (!requireAuth()) {
+      return;
+    }
+
     try {
       if (!album.albName || !album.artist) {
         toast({
@@ -269,6 +287,8 @@ function MostStreamedAlbums({
 
   return (
     <div className="space-y-6">
+      {/* Login Modal */}
+      <LoginModal {...authModalProps} />
       {/* Header */}
       <div className="flex flex-col space-y-4">
         <div className="flex items-center justify-between">
@@ -477,13 +497,10 @@ function MostStreamedAlbums({
               variant="outline"
               size="sm"
               className="gap-2 bg-gray-800 border-gray-700 text-white hover:bg-gray-700"
-              onClick={() => {
-                // Add all albums to queue functionality could go here
-                toast({
-                  title: "Feature Coming Soon",
-                  description: "Add all albums to queue functionality will be available soon",
-                });
-              }}
+              onClick={() => requireAuth() && toast({
+                title: "Feature Coming Soon",
+                description: "Add all albums to queue functionality will be available soon",
+              })}
             >
               <Plus className="w-4 h-4" />
               Add All to Queue

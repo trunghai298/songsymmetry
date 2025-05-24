@@ -28,6 +28,8 @@ import {
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Loader } from "../../components/core/Loader";
+import { useAuthModal } from "@/hooks/useAuthModal";
+import LoginModal from "../../components/core/LoginModal";
 
 function AlbumPage() {
   const params = useParams();
@@ -48,6 +50,12 @@ function AlbumPage() {
   const [tracks, setTracks] = useState<SimplifiedTrack[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Auth modal for interactive features
+  const { requireAuth, authModalProps } = useAuthModal({
+    feature: "play tracks and access playback controls",
+    message: "Sign in with Spotify to play tracks, add to queue, and access playback controls"
+  });
 
   // Fetch album data
   useEffect(() => {
@@ -88,6 +96,11 @@ function AlbumPage() {
 
   // Play entire album
   const playAlbum = async (trackIndex: number = 0) => {
+    // Check authentication before allowing play
+    if (!requireAuth()) {
+      return;
+    }
+
     try {
       if (!album) return;
 
@@ -128,6 +141,11 @@ function AlbumPage() {
 
   // Play specific track
   const playTrack = async (track: SimplifiedTrack, index: number) => {
+    // Check authentication before allowing play
+    if (!requireAuth()) {
+      return;
+    }
+
     try {
       const devices = await getAvailableDevices();
       if (devices.length === 0) {
@@ -164,6 +182,11 @@ function AlbumPage() {
 
   // Add track to queue
   const addTrackToQueue = async (track: SimplifiedTrack) => {
+    // Check authentication before allowing add to queue
+    if (!requireAuth()) {
+      return;
+    }
+
     try {
       const devices = await getAvailableDevices();
       if (devices.length === 0) {
@@ -184,9 +207,20 @@ function AlbumPage() {
       });
     } catch (error: any) {
       console.error('Error adding to queue:', error);
+      
+      // Provide specific error messages
+      let errorMessage = "Could not add track to queue";
+      if (error?.message?.includes("No active device")) {
+        errorMessage = "No active Spotify device found";
+      } else if (error?.message?.includes("Premium account")) {
+        errorMessage = "Spotify Premium is required for this feature";
+      } else if (error?.message?.includes("Rate limit")) {
+        errorMessage = "Too many requests - please wait a moment";
+      }
+      
       toast({
         title: "Queue Error",
-        description: "Could not add track to queue",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -271,6 +305,8 @@ function AlbumPage() {
 
   return (
     <div className="min-h-screen bg-gray-900">
+      {/* Login Modal */}
+      <LoginModal {...authModalProps} />
       {/* Header with album cover and info */}
       <div 
         className="relative h-96 bg-gradient-to-b from-gray-800 to-gray-900"

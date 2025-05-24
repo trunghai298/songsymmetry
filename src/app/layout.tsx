@@ -34,7 +34,7 @@ export default async function RootLayout({
               <Toaster />
               <Header />
               {children}
-              {session && <Footer />}
+              <Footer />
             </SpotifyProvider>
           </ReduxProviders>
         </body>

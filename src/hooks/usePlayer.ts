@@ -192,17 +192,43 @@ export function usePlayer() {
   }, [spotify]);
 
   const addToQueue = useCallback(async (uri: string, deviceId?: string) => {
-    try {
-      if (!spotify) {
-        console.error('Spotify client not available');
-        return;
-      }
+    if (!spotify) {
+      console.error('Spotify client not available');
+      throw new Error('Spotify client not available');
+    }
 
-      await spotify.addItemToPlaybackQueue(uri, deviceId);
-      console.log('Added to queue:', uri);
-    } catch (error) {
+    try {
+      const result = await spotify.addItemToPlaybackQueue(uri, deviceId);
+      console.log('Successfully added to queue:', uri, result);
+      
+      // Success case - no error thrown
+      return result;
+    } catch (error: any) {
       console.error('Error adding to queue:', error);
-      throw error;
+      
+      // Handle specific Spotify API errors
+      if (error?.status === 404) {
+        if (error?.message?.includes('NO_ACTIVE_DEVICE') || error?.reason === 'NO_ACTIVE_DEVICE') {
+          throw new Error('No active device found');
+        } else {
+          throw new Error('Track not found');
+        }
+      } else if (error?.status === 403) {
+        if (error?.message?.includes('PREMIUM_REQUIRED') || error?.reason === 'PREMIUM_REQUIRED') {
+          throw new Error('Premium account required');
+        } else {
+          throw new Error('Permission denied');
+        }
+      } else if (error?.status === 429) {
+        throw new Error('Rate limit exceeded, please wait');
+      } else if (error?.status === 401) {
+        throw new Error('Authentication required');
+      } else if (error?.status >= 500) {
+        throw new Error('Spotify server error - please try again');
+      } else {
+        // For other errors, provide a meaningful message
+        throw new Error(error?.message || 'Failed to add to queue');
+      }
     }
   }, [spotify]);
 

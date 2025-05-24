@@ -27,6 +27,8 @@ import { map, startCase } from "lodash";
 import { Filter, FilterX, Play, Search, X, Pause, SkipForward, SkipBack, Clock, Music, List, Plus, Shuffle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
+import { useAuthModal } from "@/hooks/useAuthModal";
+import LoginModal from "../components/core/LoginModal";
 
 function MostStreamSongs({
   songs,
@@ -45,6 +47,12 @@ function MostStreamSongs({
 }) {
   const [showFilters, setShowFilters] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // Auth modal for interactive features
+  const { requireAuth, authModalProps } = useAuthModal({
+    feature: "play music and search tracks",
+    message: "Sign in with Spotify to play music, search tracks, and access interactive features"
+  });
   const [searchingTrack, setSearchingTrack] = useState<string | null>(null);
   const [playingTrack, setPlayingTrack] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<Track[]>([]);
@@ -306,6 +314,11 @@ function MostStreamSongs({
   };
 
   const handleSearchTrack = async (track: MostStreamedSong) => {
+    // Check authentication before allowing search
+    if (!requireAuth()) {
+      return;
+    }
+
     if (!track.name || !track.artist) {
       toast({
         title: "Error",
@@ -328,11 +341,11 @@ function MostStreamSongs({
       if (!searchTrack) {
         console.error("searchTrack function is not available");
         toast({
-          title: "Error",
-          description:
-            "Spotify search is not available. Please try again later.",
+          title: "Search Unavailable",
+          description: "Spotify search is not available. Please try again later.",
           variant: "destructive",
         });
+        setSearchingTrack(null);
         return;
       }
 
@@ -407,6 +420,12 @@ function MostStreamSongs({
         }
 
         setShowResultsDialog(true);
+        
+        // Show success feedback
+        toast({
+          title: "Search Complete",
+          description: `Found ${mergedResults.length} matches for "${cleanName}"`,
+        });
       } else {
         console.log("No results found for either search");
         toast({
@@ -415,11 +434,22 @@ function MostStreamSongs({
           variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error searching for track:", error);
+      
+      // Provide more specific error messages
+      let errorMessage = "Failed to search for track on Spotify";
+      if (error?.message?.includes("network") || error?.message?.includes("fetch")) {
+        errorMessage = "Network error - please check your connection";
+      } else if (error?.status === 401) {
+        errorMessage = "Authentication error - please sign in again";
+      } else if (error?.status === 429) {
+        errorMessage = "Too many requests - please wait a moment";
+      }
+      
       toast({
-        title: "Error",
-        description: "Failed to search for track on Spotify",
+        title: "Search Error",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -538,27 +568,35 @@ function MostStreamSongs({
 
       // Add each track to the queue
       let addedCount = 0;
+      let failedCount = 0;
+      
       for (const track of searchResults) {
         try {
           await addToQueue(track.uri, deviceId);
           addedCount++;
           // Small delay to avoid rate limiting
-          await new Promise(resolve => setTimeout(resolve, 100));
-        } catch (error) {
+          await new Promise(resolve => setTimeout(resolve, 150));
+        } catch (error: any) {
           console.error(`Error adding track ${track.name} to queue:`, error);
+          failedCount++;
+          
+          // If it's a rate limit error, wait longer
+          if (error?.message?.includes("Rate limit")) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
         }
       }
 
       if (addedCount > 0) {
         toast({
           title: "Added to Queue",
-          description: `Successfully added ${addedCount} tracks to your Spotify queue`,
+          description: `Successfully added ${addedCount} tracks to your Spotify queue${failedCount > 0 ? ` (${failedCount} failed)` : ''}`,
         });
         setShowResultsDialog(false);
       } else {
         toast({
           title: "Queue Error",
-          description: "Failed to add tracks to queue",
+          description: `Failed to add tracks to queue. ${failedCount > 0 ? `${failedCount} tracks could not be added.` : 'Please ensure Spotify is open and try again.'}`,
           variant: "destructive",
         });
       }
@@ -574,6 +612,11 @@ function MostStreamSongs({
 
   // Function to directly play a track from the most streamed songs list
   const directPlay = async (track: MostStreamedSong) => {
+    // Check authentication before allowing play
+    if (!requireAuth()) {
+      return;
+    }
+
     if (!track.id) return;
 
     setPlayingTrack(track.id.toString());
@@ -1013,7 +1056,7 @@ function MostStreamSongs({
               variant="outline"
               size="sm"
               className="gap-2 bg-gray-800 border-gray-700 text-white hover:bg-gray-700"
-              onClick={() => setShowPlaylistDialog(true)}
+              onClick={() => requireAuth() && setShowPlaylistDialog(true)}
             >
               <Plus className="w-4 h-4" />
               Create Playlist
@@ -1021,6 +1064,9 @@ function MostStreamSongs({
           </div>
         )}
       </div>
+      
+      {/* Login Modal */}
+      <LoginModal {...authModalProps} />
       
       {/* Playlist Creation Dialog */}
       <Dialog open={showPlaylistDialog} onOpenChange={setShowPlaylistDialog}>
@@ -1057,6 +1103,13 @@ function MostStreamSongs({
           </div>
         </DialogContent>
       </Dialog>
+      {/* Instructions */}
+      {!isLoading && filteredSongs.length > 0 && (
+        <div className="text-center text-gray-400 text-sm">
+          Click on any song to search for it on Spotify • Click play button to start playback
+        </div>
+      )}
+
       {/* Songs Grid */}
       {isLoading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
@@ -1139,11 +1192,11 @@ function MostStreamSongs({
                   </div>
 
                   {searchingTrack === track.id?.toString() ? (
-                    <div className="absolute top-2 right-2 p-1 bg-black/50 backdrop-blur-sm rounded-full transition-colors opacity-100">
+                    <div className="absolute top-2 right-2 p-1 bg-green-600/90 backdrop-blur-sm rounded-full transition-colors opacity-100">
                       <div className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
                     </div>
                   ) : (
-                    <div className="absolute top-2 right-2 p-1 bg-black/30 backdrop-blur-sm rounded-full hover:bg-black/50 transition-colors opacity-0 group-hover:opacity-100">
+                    <div className="absolute top-2 right-2 p-1 bg-black/30 backdrop-blur-sm rounded-full hover:bg-green-600/80 transition-colors opacity-0 group-hover:opacity-100">
                       <Search className="h-5 w-5" />
                     </div>
                   )}
@@ -1166,7 +1219,7 @@ function MostStreamSongs({
                     </div>
                   )}
 
-                  <span className="text-2xl font-medium line-clamp-3 text-ellipsis overflow-hidden">
+                  <span className="text-2xl font-medium line-clamp-3 text-ellipsis overflow-hidden group-hover:text-green-400 transition-colors">
                     {track.name}
                   </span>
                   <div>
@@ -1319,11 +1372,22 @@ function MostStreamSongs({
                               title: "Added to Queue",
                               description: `Added "${track.name}" to your Spotify queue`,
                             });
-                          } catch (error) {
+                          } catch (error: any) {
                             console.error("Error adding track to queue:", error);
+                            
+                            // Provide specific error messages
+                            let errorMessage = "Failed to add track to queue";
+                            if (error?.message?.includes("No active device")) {
+                              errorMessage = "No active Spotify device found";
+                            } else if (error?.message?.includes("Premium account")) {
+                              errorMessage = "Spotify Premium is required for this feature";
+                            } else if (error?.message?.includes("Rate limit")) {
+                              errorMessage = "Too many requests - please wait a moment";
+                            }
+                            
                             toast({
                               title: "Queue Error",
-                              description: "Failed to add track to queue",
+                              description: errorMessage,
                               variant: "destructive",
                             });
                           }
