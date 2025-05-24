@@ -24,6 +24,7 @@ import { Filter, FilterX, Play, Search, X, Pause, SkipForward, SkipBack, Clock, 
 import { toast } from "@/hooks/use-toast";
 import { useAuthModal } from "@/hooks/useAuthModal";
 import LoginModal from "../components/core/LoginModal";
+import { LazyAlbumCard } from "@/components/LazyAlbumCard";
 
 interface MostStreamedAlbum {
   id: number;
@@ -528,109 +529,23 @@ function MostStreamedAlbums({
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
           {filteredAlbums.map((album, index) => (
-            <Card 
-              key={album.id} 
-              className="bg-gray-800 border-gray-700 hover:bg-gray-750 transition-all duration-200 group"
-            >
-              <CardContent className="p-4">
-                {/* Album Cover */}
-                <div className="relative aspect-square mb-4 group">
-                  <div className="w-full h-full bg-gray-700 rounded-lg overflow-hidden">
-                    {album.thumbnail ? (
-                      <img 
-                        src={album.thumbnail} 
-                        alt={album.albName || 'Album cover'}
-                        className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                          const nextElement = e.currentTarget.nextElementSibling as HTMLElement;
-                          if (nextElement) {
-                            nextElement.style.display = 'flex';
-                          }
-                        }}
-                      />
-                    ) : null}
-                    
-                    {/* Fallback */}
-                    <div 
-                      className="w-full h-full flex items-center justify-center bg-gray-700"
-                      style={{ display: album.thumbnail ? 'none' : 'flex' }}
-                    >
-                      <Music className="w-12 h-12 text-gray-500" />
-                    </div>
-                  </div>
-                  
-                  {/* Hover Controls */}
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() => playAlbum(album)}
-                      className="bg-green-600 hover:bg-green-700 text-white p-2"
-                    >
-                      <PlayCircle className="w-5 h-5" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => goToAlbum(album)}
-                      className="bg-gray-800 border-gray-600 text-white hover:bg-gray-700 p-2"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                    </Button>
-                  </div>
-
-                  {/* Rank Badge */}
-                  <div className="absolute top-2 left-2">
-                    <Badge 
-                      variant="secondary" 
-                      className="bg-black/70 text-white border-none text-xs font-bold"
-                    >
-                      #{index + 1}
-                    </Badge>
-                  </div>
-                </div>
-
-                {/* Album Info */}
-                <div className="space-y-2">
-                  <h3 
-                    className="font-semibold text-white line-clamp-2 cursor-pointer hover:text-green-400 transition-colors"
-                    onClick={() => goToAlbum(album)}
-                  >
-                    {album.albName || 'Unknown Album'}
-                  </h3>
-                  
-                  <p className="text-gray-400 text-sm line-clamp-1">
-                    {album.artist || 'Unknown Artist'}
-                  </p>
-                  
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-500">{album.year || 'Unknown'}</span>
-                    <Badge variant="outline" className="text-xs border-gray-600 text-gray-400">
-                      {album.albType || 'Album'}
-                    </Badge>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <span className="text-green-400 font-medium text-sm">
-                      {album.streamCount ? formatStreamCount(album.streamCount) : '0'} streams
-                    </span>
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-1">
-                    {album.genre && (
-                      <Badge variant="secondary" className="text-xs bg-gray-700 text-gray-300">
-                        {album.genre}
-                      </Badge>
-                    )}
-                    {album.language && (
-                      <Badge variant="secondary" className="text-xs bg-gray-700 text-gray-300">
-                        {album.language}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <div key={album.id} className="relative">
+              {/* Rank Badge */}
+              <div className="absolute top-2 left-2 z-10">
+                <Badge 
+                  variant="secondary" 
+                  className="bg-black/70 text-white border-none text-xs font-bold"
+                >
+                  #{index + 1}
+                </Badge>
+              </div>
+              
+              <LazyAlbumCard
+                album={album}
+                onPlay={playAlbum}
+                onViewDetails={goToAlbum}
+              />
+            </div>
           ))}
         </div>
       )}
