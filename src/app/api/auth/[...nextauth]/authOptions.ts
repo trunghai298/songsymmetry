@@ -20,7 +20,8 @@ export type AuthUser = {
 const authOptions: AuthOptions = {
   providers: [spotifyProfile],
   session: {
-    maxAge: 60 * 60, // 1hr
+    maxAge: 24 * 60 * 60, // 24 hours instead of 1 hour
+    updateAge: 2 * 60 * 60, // Update session every 2 hours
   },
   callbacks: {
     async jwt({ token, account }: { token: JWT; account: Account | null }) {
@@ -42,8 +43,8 @@ const authOptions: AuthOptions = {
       // Convert expires_at to milliseconds for comparison with Date.now()
       const expiresAtMs = (updatedToken.expires_at as number) * 1000;
       
-      // Check if the token is expired or about to expire (within 5 minutes)
-      if (Date.now() >= expiresAtMs - 5 * 60 * 1000) {
+      // Check if the token is expired or about to expire (within 10 minutes)
+      if (Date.now() >= expiresAtMs - 10 * 60 * 1000) {
         console.log("Token expired or about to expire, refreshing access token");
         return refreshAccessToken(updatedToken);
       }

@@ -17,13 +17,15 @@ import {
 } from "@/components/ui/select";
 import { useAppDispatch } from "@/lib/redux/hooks";
 import { setTrack } from "@/lib/redux/slices/playerSlices";
+import { usePlayer } from "@/hooks/usePlayer";
+import { useSpotify } from "@/hooks/useSpotify";
 import { MostStreamedSong, SongFilters } from "@/types/song";
 import { useSpotifySearch } from "@/hooks/useSpotifySearch";
 import { useFilterOptions } from "@/hooks/useFilterOptions";
 import { Track } from "@spotify/web-api-ts-sdk";
 import { map, startCase } from "lodash";
-import { Filter, FilterX, Play, Search, X } from "lucide-react";
-import { useState } from "react";
+import { Filter, FilterX, Play, Search, X, Pause, SkipForward, SkipBack, Clock, Music, List, Plus, Shuffle } from "lucide-react";
+import { useState, useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
 
 function MostStreamSongs({
@@ -56,12 +58,250 @@ function MostStreamSongs({
   const dispatch = useAppDispatch();
   const { searchTrack } = useSpotifySearch();
   const { filterOptions, loading: optionsLoading } = useFilterOptions();
+  const { 
+    autoPlay, 
+    toggleAutoPlay, 
+    playQueueFromIndex, 
+    track: currentPlayingTrack,
+    hasNext,
+    skipToNext,
+    queue,
+    trackStartTime,
+    // Spotify Web API controls
+    startPlayback,
+    pausePlayback,
+    skipToNextTrack,
+    skipToPreviousTrack,
+    addToQueue,
+    getCurrentPlaybackState,
+    // Real playback state
+    spotifyPlaybackState,
+    isPlaying,
+    currentProgress
+  } = usePlayer();
+  const { client: spotify } = useSpotify();
+  
+  // Media control states
+  const [currentTime, setCurrentTime] = useState(0);
+  const [showPlaylistDialog, setShowPlaylistDialog] = useState(false);
+  const [playlistName, setPlaylistName] = useState("");
+  const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
 
   const getTrackImage = (thumbnail: string) => {
     const parser = new DOMParser();
     const doc = parser.parseFromString(String(thumbnail), "text/html");
     const img = doc.querySelector("img");
     return img?.src || "";
+  };
+
+  // Update current time for progress tracking
+  useEffect(() => {
+    if (!currentPlayingTrack || !trackStartTime) return;
+
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - trackStartTime;
+      setCurrentTime(elapsed);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [currentPlayingTrack, trackStartTime]);
+
+  // Format time in mm:ss
+  const formatTime = (ms: number) => {
+    const minutes = Math.floor(ms / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  // Start playback using Spotify Web API
+  const playSpotifyTrack = async (track: Track) => {
+    try {
+      // Get available devices to ensure we have an active device
+      const devices = await getAvailableDevices();
+      if (devices.length === 0) {
+        toast({
+          title: "No Active Device",
+          description: "Please open Spotify on a device first",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Find the active device or use the first available one
+      const activeDevice = devices.find(device => device.is_active) || devices[0];
+      await startPlayback([track.uri], activeDevice.id || undefined);
+      
+      toast({
+        title: "Now Playing",
+        description: `${track.name} by ${track.artists[0].name}`,
+      });
+    } catch (error) {
+      console.error('Error starting Spotify playback:', error);
+      toast({
+        title: "Playback Error",
+        description: "Could not start playback. Make sure Spotify is open and you have Premium.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Play entire queue using Spotify Web API
+  const playSpotifyQueue = async (tracks: Track[], startIndex: number = 0) => {
+    try {
+      // Get available devices to ensure we have an active device
+      const devices = await getAvailableDevices();
+      if (devices.length === 0) {
+        toast({
+          title: "No Active Device",
+          description: "Please open Spotify on a device first",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Find the active device or use the first available one
+      const activeDevice = devices.find(device => device.is_active) || devices[0];
+      const uris = tracks.map(track => track.uri);
+      await startPlayback(uris.slice(startIndex), activeDevice.id || undefined);
+      
+      toast({
+        title: "Queue Started",
+        description: `Playing ${tracks.length - startIndex} tracks`,
+      });
+    } catch (error) {
+      console.error('Error starting Spotify queue:', error);
+      toast({
+        title: "Queue Error", 
+        description: "Could not start queue playback. Make sure Spotify is open.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Get available devices
+  const getAvailableDevices = async () => {
+    try {
+      if (!spotify) return [];
+      const devices = await spotify.getAvailableDevices();
+      console.log('Available devices:', devices);
+      return devices.devices || [];
+    } catch (error) {
+      console.error('Error getting devices:', error);
+      return [];
+    }
+  };
+
+  // Toggle play/pause
+  const togglePlayPause = async () => {
+    try {
+      console.log('Toggle play/pause - current isPlaying:', isPlaying);
+      
+      // Check if we have any active devices
+      const devices = await getAvailableDevices();
+      if (devices.length === 0) {
+        toast({
+          title: "No Active Device",
+          description: "Please open Spotify on a device first",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Find the active device or use the first available one
+      const activeDevice = devices.find(device => device.is_active) || devices[0];
+      const deviceId = activeDevice.id || undefined;
+
+      if (isPlaying) {
+        console.log('Attempting to pause playback...');
+        await pausePlayback(deviceId);
+      } else {
+        console.log('Attempting to start playback...');
+        await startPlayback(undefined, deviceId);
+      }
+    } catch (error: any) {
+      console.error('Error toggling playback:', error);
+      
+      let errorMessage = "Could not control playback";
+      if (error?.message?.includes('NO_ACTIVE_DEVICE')) {
+        errorMessage = "No active Spotify device found. Please open Spotify.";
+      } else if (error?.message?.includes('PREMIUM_REQUIRED')) {
+        errorMessage = "Spotify Premium is required for playback control";
+      } else if (error?.status === 403) {
+        errorMessage = "Bad request - check your Spotify settings";
+      } else if (error?.status === 404) {
+        errorMessage = "No active device found";
+      }
+      
+      toast({
+        title: "Playback Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Create playlist from current search results
+  const createPlaylistFromResults = async () => {
+    if (!spotify || !playlistName.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a playlist name",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCreatingPlaylist(true);
+    try {
+      // Get user profile to create playlist
+      const userProfile = await spotify.getCurrentUserProfile();
+      
+      // Create playlist
+      const playlist = await spotify.createPlaylist(userProfile.id, {
+        name: playlistName,
+        description: `Created from Song Symmetry search results - ${songs.length} tracks`,
+        public: false
+      });
+
+      // Convert songs to Spotify track URIs
+      const trackUris: string[] = [];
+      
+      for (const song of songs.slice(0, 50)) { // Limit to 50 tracks
+        const cleanName = song.name?.replace(/<[^>]*>?/gm, "").trim() || "";
+        const cleanArtist = song.artist?.replace(/<[^>]*>?/gm, "").trim() || "";
+        
+        if (!searchTrack) continue;
+        
+        const searchQuery = `${cleanName} ${cleanArtist}`;
+        const results = await searchTrack(searchQuery);
+        
+        if (results && results.length > 0) {
+          trackUris.push(results[0].uri);
+        }
+      }
+
+      // Add tracks to playlist
+      if (trackUris.length > 0) {
+        await spotify.addItemsToPlaylist(playlist.id, trackUris);
+        
+        toast({
+          title: "Success!",
+          description: `Created playlist "${playlistName}" with ${trackUris.length} tracks`,
+        });
+        
+        setShowPlaylistDialog(false);
+        setPlaylistName("");
+      }
+    } catch (error) {
+      console.error("Error creating playlist:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create playlist",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingPlaylist(false);
+    }
   };
 
   const handleSearchTrack = async (track: MostStreamedSong) => {
@@ -187,7 +427,7 @@ function MostStreamSongs({
   };
 
   // Function to play a specific track from search results
-  const playTrack = (track: Track) => {
+  const playTrack = async (track: Track) => {
     console.log("Playing track:", track);
 
     // Make sure we have a valid track
@@ -201,15 +441,13 @@ function MostStreamSongs({
       return;
     }
 
-    // Dispatch the track to the Redux store
     try {
+      // Update Redux store for background image and UI state
       dispatch(setTrack(track));
       console.log("Track dispatched to Redux store");
 
-      // toast({
-      //   title: "Playing track",
-      //   description: `Now playing ${track.name} by ${track.artists[0].name}`,
-      // });
+      // Play the track using Spotify Web API
+      await playSpotifyTrack(track);
 
       // Close the dialog
       setShowResultsDialog(false);
@@ -218,6 +456,116 @@ function MostStreamSongs({
       toast({
         title: "Error",
         description: "Failed to play the track",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Function to create a queue and play from a specific index
+  const playWithQueue = async (selectedTrack: MostStreamedSong, songList: MostStreamedSong[]) => {
+    const selectedIndex = songList.findIndex(song => song.id === selectedTrack.id);
+    if (selectedIndex === -1) return;
+
+    setPlayingTrack(selectedTrack.id!.toString());
+
+    try {
+      // Convert all songs to Spotify tracks for the queue
+      const spotifyTracks: Track[] = [];
+      
+      for (let i = selectedIndex; i < Math.min(selectedIndex + 10, songList.length); i++) {
+        const song = songList[i];
+        const cleanName = song.name?.replace(/<[^>]*>?/gm, "").trim() || "";
+        const cleanArtist = song.artist?.replace(/<[^>]*>?/gm, "").trim() || "";
+        
+        if (!searchTrack) continue;
+        
+        const searchQuery = `${cleanName} ${cleanArtist}`;
+        const results = await searchTrack(searchQuery);
+        
+        if (results && results.length > 0) {
+          spotifyTracks.push(results[0]);
+        }
+      }
+
+      if (spotifyTracks.length > 0) {
+        // Update Redux store for background image and UI state (first track)
+        dispatch(setTrack(spotifyTracks[0]));
+        
+        // Use Spotify Web API to play the queue
+        await playSpotifyQueue(spotifyTracks, 0);
+        // Also update our Redux state for UI consistency
+        playQueueFromIndex(spotifyTracks, 0);
+      }
+    } catch (error) {
+      console.error("Error creating queue:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create playlist queue",
+        variant: "destructive",
+      });
+    } finally {
+      setPlayingTrack(null);
+    }
+  };
+
+  // Function to add all search results to the Spotify queue
+  const addAllToQueue = async () => {
+    if (searchResults.length === 0) {
+      toast({
+        title: "No Results",
+        description: "No search results to add to queue",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Get available devices to ensure we have an active device
+      const devices = await getAvailableDevices();
+      if (devices.length === 0) {
+        toast({
+          title: "No Active Device",
+          description: "Please open Spotify on a device first",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Find the active device or use the first available one
+      const activeDevice = devices.find(device => device.is_active) || devices[0];
+      const deviceId = activeDevice.id || undefined;
+
+      // Add each track to the queue
+      let addedCount = 0;
+      for (const track of searchResults) {
+        try {
+          await addToQueue(track.uri, deviceId);
+          addedCount++;
+          // Small delay to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } catch (error) {
+          console.error(`Error adding track ${track.name} to queue:`, error);
+        }
+      }
+
+      if (addedCount > 0) {
+        toast({
+          title: "Added to Queue",
+          description: `Successfully added ${addedCount} tracks to your Spotify queue`,
+        });
+        setShowResultsDialog(false);
+      } else {
+        toast({
+          title: "Queue Error",
+          description: "Failed to add tracks to queue",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error adding tracks to queue:", error);
+      toast({
+        title: "Queue Error",
+        description: "Failed to add tracks to queue. Make sure Spotify is open.",
         variant: "destructive",
       });
     }
@@ -236,8 +584,16 @@ function MostStreamSongs({
         const cachedResults = trackSearchCache[track.id.toString()];
         console.log("Using cached search results for quick play:", track.name);
 
-        // Play the first result
-        playTrack(cachedResults[0]);
+        // Update Redux store for background image and UI state
+        dispatch(setTrack(cachedResults[0]));
+
+        // If auto-play is enabled, create a queue
+        if (autoPlay) {
+          playWithQueue(track, songs);
+        } else {
+          // Use Spotify Web API for direct playback
+          await playSpotifyTrack(cachedResults[0]);
+        }
       } else {
         // Need to search first
         const cleanName = track.name?.replace(/<[^>]*>?/gm, "").trim() || "";
@@ -300,8 +656,16 @@ function MostStreamSongs({
             [track.id!.toString()]: mergedResults,
           }));
 
-          // But still play the first result from the primary search
-          playTrack(results[0]);
+          // Update Redux store for background image and UI state
+          dispatch(setTrack(results[0]));
+
+          // If auto-play is enabled, create a queue, otherwise just play the track
+          if (autoPlay) {
+            playWithQueue(track, songs);
+          } else {
+            // Use Spotify Web API for direct playback
+            await playSpotifyTrack(results[0]);
+          }
         } else {
           toast({
             title: "No results",
@@ -325,217 +689,259 @@ function MostStreamSongs({
   return (
     <div className="w-full flex flex-col space-y-4 relative">
       <h2 className="text-2xl text-white font-bold">Most Streamed Songs</h2>
-      <div className="w-full flex flex-row justify-between">
-        <div className="flex flex-row space-x-2 items-center">
-          {/* Check if all main filters are set to default values (all years, all languages, all genres) */}
-          {!filters.year && !filters.language && !filters.genre && !filters.name && !filters.artist && (
-            <Badge className="font-medium text-white bg-blue-600" variant="outline">
-              All-time
-            </Badge>
-          )}
-          
-          {Object.entries(filters).map(([key, value]) => (
-            <div key={key} className="flex flex-row space-x-1">
-              {key === "limit" && (
-                <Badge className="font-medium text-white" variant="outline">
-                  Total Songs: {songs.length}
-                </Badge>
-              )}
-              {key !== "limit" && value && (
-                <Badge className="font-medium text-white" variant="outline">
-                  {startCase(key)} :{" "}
-                  {typeof value === "object" ? value.join(", ") : value}
-                </Badge>
-              )}
+      
+      {/* Main Control Panel */}
+      <div className="w-full">
+        {/* Left Section - Filters & Search (Full Width) */}
+        <div className="w-full flex flex-col space-y-4">
+          {/* Filter Status Badges */}
+          <div className="flex flex-row space-x-2 items-center flex-wrap">
+            {/* Check if all main filters are set to default values */}
+            {!filters.year && !filters.language && !filters.genre && !filters.name && !filters.artist && (
+              <Badge className="font-medium text-white bg-blue-600" variant="outline">
+                All-time
+              </Badge>
+            )}
+            
+            {Object.entries(filters).map(([key, value]) => (
+              <div key={key} className="flex flex-row space-x-1">
+                {key === "limit" && (
+                  <Badge className="font-medium text-white" variant="outline">
+                    Total Songs: {songs.length}
+                  </Badge>
+                )}
+                {key !== "limit" && value && (
+                  <Badge className="font-medium text-white" variant="outline">
+                    {startCase(key)} :{" "}
+                    {typeof value === "object" ? value.join(", ") : value}
+                  </Badge>
+                )}
+              </div>
+            ))}
+            
+            {/* Filter Toggle */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setOpenFilter(!openFilter)}
+              className="bg-transparent border-gray-500 text-gray-300 hover:bg-gray-800"
+            >
+              {openFilter ? <FilterX className="w-4 h-4" /> : <Filter className="w-4 h-4" />}
+              {openFilter ? "Hide Filters" : "Show Filters"}
+            </Button>
+          </div>
+
+          {/* Search and Filter Forms - Moved here from bottom */}
+          {openFilter && (
+            <div className="w-full transition-all duration-300">
+              <form
+                className="w-full"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  onApplyFilters();
+                }}
+              >
+                <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  <div className="relative">
+                    <Input
+                      className="user-select-none pr-10"
+                      type="text"
+                      placeholder="Search by name"
+                      value={filters.name || ""}
+                      onChange={(e) => {
+                        const name = e.target.value;
+                        setFilters((prev) => ({
+                          ...prev,
+                          name: name === "" ? undefined : name,
+                        }));
+                      }}
+                    />
+                  </div>
+                  <div className="relative">
+                    <Input
+                      className="pr-10"
+                      type="text"
+                      placeholder="Search by artist"
+                      value={filters.artist || ""}
+                      onChange={(e) => {
+                        const names = e.target.value;
+                        setFilters((prev) => ({
+                          ...prev,
+                          artist: names === "" ? undefined : names,
+                        }));
+                      }}
+                    />
+                  </div>
+                  <div className="relative">
+                    <Select
+                      value={filters.genre?.[0] || "all-genres"}
+                      onValueChange={(value) => {
+                        setFilters((prev) => ({
+                          ...prev,
+                          genre: value === "all-genres" ? undefined : [value],
+                        }));
+                      }}
+                      disabled={optionsLoading}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select genre" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-gray-900 border-gray-700 text-white max-h-60">
+                        <SelectItem
+                          value="all-genres"
+                          className="text-white hover:bg-gray-800"
+                        >
+                          All Genres
+                        </SelectItem>
+                        {filterOptions.genres.map((genre) => (
+                          <SelectItem
+                            key={genre}
+                            value={genre}
+                            className="text-white hover:bg-gray-800"
+                          >
+                            {genre}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="relative">
+                    <Select
+                      value={filters.year || "all-years"}
+                      onValueChange={(value) => {
+                        setFilters((prev) => ({
+                          ...prev,
+                          year: value === "all-years" ? undefined : value,
+                        }));
+                      }}
+                      disabled={optionsLoading}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select year" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-gray-900 border-gray-700 text-white max-h-60">
+                        <SelectItem
+                          value="all-years"
+                          className="text-white hover:bg-gray-800"
+                        >
+                          All Years
+                        </SelectItem>
+                        {filterOptions.years.map((year) => (
+                          <SelectItem
+                            key={year}
+                            value={year}
+                            className="text-white hover:bg-gray-800"
+                          >
+                            {year}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="relative">
+                    <Select
+                      value={filters.language?.[0] || "all-languages"}
+                      onValueChange={(value) => {
+                        setFilters((prev) => ({
+                          ...prev,
+                          language: value === "all-languages" ? undefined : [value],
+                        }));
+                      }}
+                      disabled={optionsLoading}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select language" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-gray-900 border-gray-700 text-white max-h-60">
+                        <SelectItem
+                          value="all-languages"
+                          className="text-white hover:bg-gray-800"
+                        >
+                          All Languages
+                        </SelectItem>
+                        {filterOptions.languages.map((language) => (
+                          <SelectItem
+                            key={language}
+                            value={language}
+                            className="text-white hover:bg-gray-800"
+                          >
+                            {language}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex space-x-2">
+                    <Input
+                      className="pr-10"
+                      type="number"
+                      placeholder="Number of songs"
+                      value={filters.limit || ""}
+                      onChange={(e) => {
+                        const limit = e.target.value;
+                        setFilters((prev) => ({
+                          ...prev,
+                          limit: limit === "" ? undefined : Number(limit),
+                        }));
+                      }}
+                    />
+                    <Button
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                      onClick={onApplyFilters}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? (
+                        <>
+                          <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                          Searching...
+                        </>
+                      ) : (
+                        "Search"
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </form>
             </div>
-          ))}
-        </div>
-        <div className="flex flex-row space-x-2">
-          {openFilter ? (
-            <FilterX
-              className="cursor-pointer"
-              onClick={() => setOpenFilter(false)}
-            />
-          ) : (
-            <Filter
-              className="cursor-pointer"
-              onClick={() => setOpenFilter(true)}
-            />
           )}
         </div>
       </div>
-      {openFilter && (
-        <div className="w-full flex flex-row space-x-2 transition-all duration-300">
-          <form
-            className="w-full"
-            onSubmit={(e) => {
-              e.preventDefault();
-              onApplyFilters();
-            }}
-          >
-            <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              <div className="relative">
-                <Input
-                  className="user-select-none pr-10"
-                  type="text"
-                  placeholder="Search by name"
-                  value={filters.name || ""}
-                  onChange={(e) => {
-                    const name = e.target.value;
-                    setFilters((prev) => ({
-                      ...prev,
-                      name: name === "" ? undefined : name,
-                    }));
-                  }}
-                />
-              </div>
-              <div className="relative">
-                <Input
-                  className="pr-10"
-                  type="text"
-                  placeholder="Search by artist"
-                  value={filters.artist || ""}
-                  onChange={(e) => {
-                    const names = e.target.value;
-                    setFilters((prev) => ({
-                      ...prev,
-                      artist: names === "" ? undefined : names,
-                    }));
-                  }}
-                />
-              </div>
-              <div className="relative">
-                <Select
-                  value={filters.genre?.[0] || "all-genres"}
-                  onValueChange={(value) => {
-                    setFilters((prev) => ({
-                      ...prev,
-                      genre: value === "all-genres" ? undefined : [value],
-                    }));
-                  }}
-                  disabled={optionsLoading}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select genre" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-gray-900 border-gray-700 text-white max-h-60">
-                    <SelectItem
-                      value="all-genres"
-                      className="text-white hover:bg-gray-800"
-                    >
-                      All Genres
-                    </SelectItem>
-                    {filterOptions.genres.map((genre) => (
-                      <SelectItem
-                        key={genre}
-                        value={genre}
-                        className="text-white hover:bg-gray-800"
-                      >
-                        {genre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="relative">
-                <Select
-                  value={filters.year || "all-years"}
-                  onValueChange={(value) => {
-                    setFilters((prev) => ({
-                      ...prev,
-                      year: value === "all-years" ? undefined : value,
-                    }));
-                  }}
-                  disabled={optionsLoading}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select year" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-gray-900 border-gray-700 text-white max-h-60">
-                    <SelectItem
-                      value="all-years"
-                      className="text-white hover:bg-gray-800"
-                    >
-                      All Years
-                    </SelectItem>
-                    {filterOptions.years.map((year) => (
-                      <SelectItem
-                        key={year}
-                        value={year}
-                        className="text-white hover:bg-gray-800"
-                      >
-                        {year}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="relative">
-                <Select
-                  value={filters.language?.[0] || "all-languages"}
-                  onValueChange={(value) => {
-                    setFilters((prev) => ({
-                      ...prev,
-                      language: value === "all-languages" ? undefined : [value],
-                    }));
-                  }}
-                  disabled={optionsLoading}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select language" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-gray-900 border-gray-700 text-white max-h-60">
-                    <SelectItem
-                      value="all-languages"
-                      className="text-white hover:bg-gray-800"
-                    >
-                      All Languages
-                    </SelectItem>
-                    {filterOptions.languages.map((language) => (
-                      <SelectItem
-                        key={language}
-                        value={language}
-                        className="text-white hover:bg-gray-800"
-                      >
-                        {language}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex space-x-2">
-                <Input
-                  className="pr-10"
-                  type="number"
-                  placeholder="Number of songs"
-                  value={filters.limit || ""}
-                  onChange={(e) => {
-                    const limit = e.target.value;
-                    setFilters((prev) => ({
-                      ...prev,
-                      limit: limit === "" ? undefined : Number(limit),
-                    }));
-                  }}
-                />
-                <Button
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                  onClick={onApplyFilters}
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <>
-                      <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
-                      Searching...
-                    </>
-                  ) : (
-                    "Search"
-                  )}
-                </Button>
-              </div>
+      
+      {/* Playlist Creation Dialog */}
+      <Dialog open={showPlaylistDialog} onOpenChange={setShowPlaylistDialog}>
+        <DialogContent className="bg-gray-900 border-gray-700">
+          <DialogHeader>
+            <DialogTitle className="text-white">Create Playlist</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              placeholder="Enter playlist name"
+              value={playlistName}
+              onChange={(e) => setPlaylistName(e.target.value)}
+              className="bg-gray-800 border-gray-600 text-white"
+            />
+            <div className="text-sm text-gray-400">
+              This will create a playlist with {Math.min(songs.length, 50)} tracks from your current search results.
             </div>
-          </form>
-        </div>
-      )}
+            <div className="flex space-x-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowPlaylistDialog(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={createPlaylistFromResults}
+                disabled={!playlistName.trim() || isCreatingPlaylist}
+                className="flex-1 bg-green-600 hover:bg-green-700"
+              >
+                {isCreatingPlaylist ? "Creating..." : "Create"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       <div className="flex flex-row space-x-2">
         {isLoading ? (
           <div className="w-full flex items-center justify-center mt-12 mb-12">
@@ -697,16 +1103,12 @@ function MostStreamSongs({
                 <Button
                   variant="secondary"
                   size="sm"
-                  className="bg-gray-700 text-gray-200 hover:bg-gray-600 hover:text-white"
-                  onClick={() => {
-                    setShowResultsDialog(false);
-                    toast({
-                      title: "Feature coming soon",
-                      description: "Adding to queue is not yet available",
-                    });
-                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  onClick={addAllToQueue}
+                  disabled={searchResults.length === 0}
                 >
-                  Add to Queue
+                  <List className="h-4 w-4 mr-2" />
+                  Add All to Queue
                 </Button>
               </div>
             </div>
@@ -747,22 +1149,63 @@ function MostStreamSongs({
                         {new Date(track.album.release_date).getFullYear()}
                       </p>
                     </div>
-                    <Button
-                      size="icon"
-                      variant="default"
-                      className="rounded-full bg-green-600 hover:bg-green-700 text-white"
-                      onClick={(e) => {
-                        e.stopPropagation(); // Prevent card click
-                        e.preventDefault();
-                        console.log(
-                          "Play button clicked for track:",
-                          track.name
-                        );
-                        playTrack(track);
-                      }}
-                    >
-                      <Play className="h-5 w-5" />
-                    </Button>
+                    <div className="flex space-x-2">
+                      <Button
+                        size="icon"
+                        variant="secondary"
+                        className="rounded-full bg-blue-600 hover:bg-blue-700 text-white"
+                        onClick={async (e) => {
+                          e.stopPropagation(); // Prevent card click
+                          e.preventDefault();
+                          
+                          try {
+                            // Get available devices
+                            const devices = await getAvailableDevices();
+                            if (devices.length === 0) {
+                              toast({
+                                title: "No Active Device",
+                                description: "Please open Spotify on a device first",
+                                variant: "destructive",
+                              });
+                              return;
+                            }
+
+                            const activeDevice = devices.find(device => device.is_active) || devices[0];
+                            await addToQueue(track.uri, activeDevice.id || undefined);
+                            
+                            toast({
+                              title: "Added to Queue",
+                              description: `Added "${track.name}" to your Spotify queue`,
+                            });
+                          } catch (error) {
+                            console.error("Error adding track to queue:", error);
+                            toast({
+                              title: "Queue Error",
+                              description: "Failed to add track to queue",
+                              variant: "destructive",
+                            });
+                          }
+                        }}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="default"
+                        className="rounded-full bg-green-600 hover:bg-green-700 text-white"
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevent card click
+                          e.preventDefault();
+                          console.log(
+                            "Play button clicked for track:",
+                            track.name
+                          );
+                          playTrack(track);
+                        }}
+                      >
+                        <Play className="h-5 w-5" />
+                      </Button>
+                    </div>
                   </Card>
                 ))}
               </div>

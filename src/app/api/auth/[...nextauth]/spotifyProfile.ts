@@ -31,6 +31,7 @@ const scopes = [
   "user-follow-read",
   "user-read-private",
   "user-read-playback-state",
+  "user-modify-playback-state",
 ];
 
 authURL.searchParams.append("scope", scopes.join(" "));
@@ -43,19 +44,19 @@ export async function refreshAccessToken(token: JWT) {
   try {
     // Spotify token refresh endpoint
     const tokenEndpoint = "https://accounts.spotify.com/api/token";
-    
+
     // Prepare the request body as per Spotify API requirements
     const basicAuth = Buffer.from(
       `${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`
     ).toString("base64");
-    
+
     const body = new URLSearchParams({
       grant_type: "refresh_token",
       refresh_token: token.refresh_token as string,
     });
 
     console.log("Refreshing token for:", token.email);
-    
+
     const response = await fetch(tokenEndpoint, {
       method: "POST",
       headers: {
@@ -72,9 +73,9 @@ export async function refreshAccessToken(token: JWT) {
       console.error("Token refresh failed:", refreshedTokens);
       throw refreshedTokens;
     }
-    
+
     console.log("Token refreshed successfully");
-    
+
     // Calculate new expiry time in seconds
     const now = Math.floor(Date.now() / 1000);
     const expiresAt = now + refreshedTokens.expires_in;

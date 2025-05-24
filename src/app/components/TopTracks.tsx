@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import sdk from "../../lib/spotify-sdk/ClientInstance";
 import { setTrack } from "../../lib/redux/slices/playerSlices";
+import { usePlayer } from "@/hooks/usePlayer";
+import { toast } from "@/hooks/use-toast";
 import { map } from "lodash";
 import { Loader } from "./core/Loader";
 import Image from "next/image";
@@ -22,6 +24,7 @@ function TopTracks() {
   const [yourTopTracks, setYourTopTracks] = useState<Page<Track>>();
   const dispatch = useAppDispatch();
   const { track: selectedTrack } = useAppSelector((state) => state.player);
+  const { startPlayback } = usePlayer();
   const router = useRouter();
 
   const [timeRange, setTimeRange] = useState<TimeRange>({
@@ -44,8 +47,26 @@ function TopTracks() {
     })();
   }, [timeRange]);
 
-  const onClickTrack = (track: Track) => {
-    dispatch(setTrack(track));
+  const onClickTrack = async (track: Track) => {
+    try {
+      // Update Redux store for background image and UI state
+      dispatch(setTrack(track));
+      
+      // Play the track using Spotify Web API
+      await startPlayback([track.uri]);
+      
+      toast({
+        title: "Now Playing",
+        description: `${track.name} by ${track.artists[0].name}`,
+      });
+    } catch (error) {
+      console.error('Error playing track:', error);
+      toast({
+        title: "Playback Error",
+        description: "Could not start playback. Make sure Spotify is open and you have Premium.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (!yourTopTracks) {

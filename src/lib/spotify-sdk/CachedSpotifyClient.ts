@@ -234,8 +234,55 @@ export class CachedSpotifyClient {
   /**
    * Add item to playback queue - no caching as it's an action
    */
-  async addItemToPlaybackQueue(uri: string) {
-    return this.client.player.addItemToPlaybackQueue(uri);
+  async addItemToPlaybackQueue(uri: string, deviceId?: string) {
+    return this.client.player.addItemToPlaybackQueue(uri, deviceId as any);
+  }
+
+  /**
+   * Get current playback state - no caching as it's real-time
+   */
+  async getPlaybackState() {
+    return this.client.player.getPlaybackState();
+  }
+
+  /**
+   * Start or resume playback - no caching as it's an action
+   */
+  async startResumePlayback(device_id: string, context_uri?: string, uris?: string[], offset?: object, positionMs?: number) {
+    return this.client.player.startResumePlayback(device_id, context_uri, uris, offset, positionMs);
+  }
+
+  /**
+   * Pause playback - no caching as it's an action
+   */
+  async pausePlayback(deviceId?: string) {
+    return this.client.player.pausePlayback(deviceId as any);
+  }
+
+  /**
+   * Skip to next track - no caching as it's an action
+   */
+  async skipToNext(deviceId?: string) {
+    return this.client.player.skipToNext(deviceId as any);
+  }
+
+  /**
+   * Skip to previous track - no caching as it's an action
+   */
+  async skipToPrevious(deviceId?: string) {
+    return this.client.player.skipToPrevious(deviceId as any);
+  }
+
+  /**
+   * Get available devices - short cache as device list can change
+   */
+  async getAvailableDevices() {
+    return this.cachedRequest(
+      "getAvailableDevices",
+      () => this.client.player.getAvailableDevices(),
+      [],
+      1000 * 30 // 30 second cache
+    );
   }
 
   /**

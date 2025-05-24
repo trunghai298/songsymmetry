@@ -17,6 +17,7 @@ import {
   setPlaylist,
   setTrack,
 } from "../../lib/redux/slices/playerSlices";
+import { usePlayer } from "@/hooks/usePlayer";
 import { cloneDeep, map, startCase, sumBy } from "lodash";
 import { Loader } from "../components/core/Loader";
 import Container from "../components/core/Container";
@@ -46,6 +47,7 @@ type Tracks = PlaylistTracks | AlbumTracks | undefined;
 function TopTracks() {
   const [tracksData, setTracksData] = useState<Tracks | undefined>();
   const dispatch = useAppDispatch();
+  const { startPlayback } = usePlayer();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -78,8 +80,26 @@ function TopTracks() {
     })();
   }, []);
 
-  const onClickTrack = (track: SimplifiedTrack | PlaylistedTrack) => {
-    dispatch(setTrack(track as Track));
+  const onClickTrack = async (track: SimplifiedTrack | PlaylistedTrack) => {
+    try {
+      // Update Redux store for background image and UI state
+      dispatch(setTrack(track as Track));
+      
+      // Play the track using Spotify Web API
+      await startPlayback([(track as Track).uri]);
+      
+      toast({
+        title: "Now Playing",
+        description: `${(track as Track).name} by ${(track as Track).artists[0].name}`,
+      });
+    } catch (error) {
+      console.error('Error playing track:', error);
+      toast({
+        title: "Playback Error",
+        description: "Could not start playback. Make sure Spotify is open and you have Premium.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (!tracksData) {
@@ -125,9 +145,10 @@ function TopTracks() {
                 <Button
                   variant="outline"
                   className="w-full min-w-[100%] sm:min-w-[300px] h-auto text-white text-xl sm:text-2xl font-bold px-2 sm:px-4 md:px-6 lg:px-8 py-2 sm:py-3 md:py-4 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  onClick={() => dispatch(setAlbum(album))}
+                  onClick={() => openAlbumInSpotify(album)}
                 >
-                  Play here
+                  <i className="bi bi-spotify text-xl mr-2" />
+                  View Album
                 </Button>
                 <Button
                   onClick={() => openAlbumInSpotify(album)}
@@ -260,9 +281,10 @@ function TopTracks() {
                 <Button
                   variant="outline"
                   className="w-full min-w-[100%] sm:min-w-[300px] h-auto text-white text-xl sm:text-2xl font-bold px-2 sm:px-4 md:px-6 lg:px-8 py-2 sm:py-3 md:py-4 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  onClick={() => dispatch(setPlaylist(playlist))}
+                  onClick={() => openPlaylistInSpotify(playlist)}
                 >
-                  Play here
+                  <i className="bi bi-spotify text-xl mr-2" />
+                  View Playlist
                 </Button>
                 <Button
                   onClick={() => openPlaylistInSpotify(playlist)}

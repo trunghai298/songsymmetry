@@ -33,7 +33,11 @@ export const Header = () => {
   if (session.status === "unauthenticated") return null;
 
   return (
-    <header className="sticky -top-[1px] w-full p-4 sm:px-10 bg-gray-900 z-50 flex justify-between items-center">
+    <header className={`sticky -top-[1px] w-full p-4 sm:px-10 z-50 flex justify-between items-center transition-all duration-300 ${
+      currentPath === "/explore" 
+        ? "bg-transparent backdrop-blur-sm" 
+        : "bg-gray-900"
+    }`}>
       <nav className="flex flex-wrap w-full items-center justify-between sm:space-x-4">
         <div
           className="flex gap-x-1 items-center cursor-pointer"

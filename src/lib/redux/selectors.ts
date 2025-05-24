@@ -33,6 +33,31 @@ export const selectEmbedSrc = createSelector(
   (playerState) => playerState.src
 );
 
+export const selectPlayerQueue = createSelector(
+  [selectPlayerState],
+  (playerState) => playerState.queue
+);
+
+export const selectCurrentIndex = createSelector(
+  [selectPlayerState],
+  (playerState) => playerState.currentIndex
+);
+
+export const selectAutoPlay = createSelector(
+  [selectPlayerState],
+  (playerState) => playerState.autoPlay
+);
+
+export const selectHasNext = createSelector(
+  [selectPlayerState],
+  (playerState) => playerState.currentIndex < playerState.queue.length - 1
+);
+
+export const selectHasPrevious = createSelector(
+  [selectPlayerState],
+  (playerState) => playerState.currentIndex > 0
+);
+
 // Playlist selectors
 export const selectPlaylists = (state: RootState) => state.playlist.playlist;
 

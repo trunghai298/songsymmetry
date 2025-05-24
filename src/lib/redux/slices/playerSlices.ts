@@ -8,6 +8,9 @@ interface IPlayer {
   size: "compact" | "full";
   src: string;
   currentTrack: Track | undefined;
+  queue: Track[];
+  currentIndex: number;
+  autoPlay: boolean;
 }
 
 const initialState: IPlayer = {
@@ -17,6 +20,9 @@ const initialState: IPlayer = {
   size: "compact",
   src: "",
   currentTrack: undefined,
+  queue: [],
+  currentIndex: -1,
+  autoPlay: false,
 };
 
 export const playerSlice = createSlice({
@@ -59,6 +65,44 @@ export const playerSlice = createSlice({
     expandPlayer: (state) => {
       state.size = state.size === "compact" ? "full" : "compact";
     },
+    setQueue: (state, action: PayloadAction<Track[]>) => {
+      state.queue = action.payload;
+      state.currentIndex = 0;
+    },
+    addToQueue: (state, action: PayloadAction<Track>) => {
+      state.queue.push(action.payload);
+    },
+    playNext: (state) => {
+      if (state.currentIndex < state.queue.length - 1) {
+        state.currentIndex++;
+        const nextTrack = state.queue[state.currentIndex];
+        state.track = nextTrack;
+        state.state = "open";
+        state.src = `https://open.spotify.com/embed/track/${nextTrack.id}?utm_source=generator`;
+      }
+    },
+    playPrevious: (state) => {
+      if (state.currentIndex > 0) {
+        state.currentIndex--;
+        const prevTrack = state.queue[state.currentIndex];
+        state.track = prevTrack;
+        state.state = "open";
+        state.src = `https://open.spotify.com/embed/track/${prevTrack.id}?utm_source=generator`;
+      }
+    },
+    setAutoPlay: (state, action: PayloadAction<boolean>) => {
+      state.autoPlay = action.payload;
+    },
+    playFromQueue: (state, action: PayloadAction<{ tracks: Track[], index: number }>) => {
+      state.queue = action.payload.tracks;
+      state.currentIndex = action.payload.index;
+      const track = state.queue[state.currentIndex];
+      state.track = track;
+      state.state = "open";
+      state.size = "compact";
+      state.type = "single";
+      state.src = `https://open.spotify.com/embed/track/${track.id}?utm_source=generator`;
+    },
   },
 });
 
@@ -70,6 +114,12 @@ export const {
   closePlayer,
   expandPlayer,
   setCurrentTrack,
+  setQueue,
+  addToQueue,
+  playNext,
+  playPrevious,
+  setAutoPlay,
+  playFromQueue,
 } = playerSlice.actions;
 
 export default playerSlice.reducer;

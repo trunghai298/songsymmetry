@@ -4,7 +4,6 @@ import { getServerSession } from "next-auth";
 import { Inter } from "next/font/google";
 import AuthSessionProvider from "./components/AuthSessionProvider";
 import { Header } from "./components/core/Header";
-import { EmbedPlayer } from "./components/core/EmbedPlayer";
 import { Providers as ReduxProviders } from "../lib/redux/providers";
 import { SpotifyProvider } from "@/lib/spotify-sdk/SpotifyContext";
 import "bootstrap-icons/font/bootstrap-icons.css";
@@ -12,6 +11,7 @@ import { Toaster } from "@/components/ui/toaster";
 import Footer from "./components/core/Footer";
 import SubscribeDialog from "./components/core/Subscibe";
 import UserInitializer from "./components/UserInitializer";
+import FloatingMediaPanel from "./components/core/FloatingMediaPanel";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -30,7 +30,7 @@ export default async function RootLayout({
             <SpotifyProvider>
               <UserInitializer />
               <SubscribeDialog />
-              <EmbedPlayer />
+              <FloatingMediaPanel />
               <Toaster />
               <Header />
               {children}

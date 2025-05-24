@@ -11,6 +11,8 @@ import sdk from "../../../lib/spotify-sdk/ClientInstance";
 import { Loader } from "@/app/components/core/Loader";
 import { useAppDispatch } from "@/lib/redux/hooks";
 import { setTrack } from "@/lib/redux/slices/playerSlices";
+import { usePlayer } from "@/hooks/usePlayer";
+import { toast } from "@/hooks/use-toast";
 import Container from "@/app/components/core/Container";
 import { useRouter } from "next/navigation";
 import { millisToMinutesAndSeconds } from "@/utils";
@@ -21,6 +23,7 @@ function ArtistPage({ params }: { params: { id: string } }) {
   const [albums, setAlbums] = useState<Page<SimplifiedAlbum>>();
   const [topTracks, setTracks] = useState<TopTracksResult>();
   const dispatch = useAppDispatch();
+  const { startPlayback } = usePlayer();
   const router = useRouter();
   const { id } = params;
 
@@ -37,6 +40,28 @@ function ArtistPage({ params }: { params: { id: string } }) {
       setArtist(artist);
     })();
   }, [id]);
+
+  const onClickTrack = async (track: any) => {
+    try {
+      // Update Redux store for background image and UI state
+      dispatch(setTrack(track));
+      
+      // Play the track using Spotify Web API
+      await startPlayback([track.uri]);
+      
+      toast({
+        title: "Now Playing",
+        description: `${track.name} by ${track.artists[0].name}`,
+      });
+    } catch (error) {
+      console.error('Error playing track:', error);
+      toast({
+        title: "Playback Error",
+        description: "Could not start playback. Make sure Spotify is open and you have Premium.",
+        variant: "destructive",
+      });
+    }
+  };
 
   if (!artist || !albums) {
     return <Loader />;
@@ -114,8 +139,8 @@ function ArtistPage({ params }: { params: { id: string } }) {
                           className="rounded-sm object-cover object-center"
                         />
                         <h2
-                          className="line-clamp-1 text-md font-bold"
-                          onClick={() => dispatch(setTrack(track))}
+                          className="line-clamp-1 text-md font-bold cursor-pointer"
+                          onClick={() => onClickTrack(track)}
                         >
                           {track.name}
                         </h2>
