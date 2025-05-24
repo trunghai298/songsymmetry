@@ -6,10 +6,16 @@ import { importPlaylistTracksToStation } from "@/lib/utils/playlist-utils";
 import { getAuthUser } from "@/lib/session";
 import { get } from "lodash";
 
-// GET: Fetch all public stations
+// GET: Fetch all public stations (including system stations)
 export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const includeSystem = searchParams.get('includeSystem') !== 'false'; // Default to true
+
+    const whereClause = includeSystem ? {} : { isSystem: false };
+
     const stations = await prisma.station.findMany({
+      where: whereClause,
       include: {
         owner: {
           select: {
@@ -32,6 +38,10 @@ export async function GET(request: NextRequest) {
           take: 1,
         },
       },
+      orderBy: [
+        { isSystem: "desc" }, // System stations first
+        { createdAt: "desc" },
+      ],
     });
 
     return NextResponse.json(stations);

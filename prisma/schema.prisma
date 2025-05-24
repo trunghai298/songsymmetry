@@ -54,15 +54,21 @@ model Station {
   // Spotify playlist ID
   playlistId  String?
   
+  // System station fields
+  isSystem    Boolean  @default(false)
+  stationType String?  // 'all-time', 'kpop', 'us-uk', 'random'
+  
   // Relations
-  ownerId     String
-  owner       User     @relation(fields: [ownerId], references: [id])
+  ownerId     String?
+  owner       User?    @relation(fields: [ownerId], references: [id])
   
   // Connections
   members     StationMember[]
   tracks      StationTrack[]
   
   @@index([ownerId])
+  @@index([isSystem])
+  @@index([stationType])
 }
 
 model StationMember {
