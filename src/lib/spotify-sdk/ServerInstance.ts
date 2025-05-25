@@ -26,6 +26,7 @@ export function getServerSpotifyClient(): SpotifyApi {
 
 /**
  * Search for a track on Spotify using server credentials
+ * Returns the first matching track or null if no matches found
  */
 export async function searchSpotifyTrack(query: string) {
   try {
