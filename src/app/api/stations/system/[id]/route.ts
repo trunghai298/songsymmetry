@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { 
+import {
   refreshSystemStationTracks,
   getSystemStationTracks,
-  SYSTEM_STATIONS 
+  enrichSystemStationTracksInPlace,
+  SYSTEM_STATIONS,
 } from "@/lib/stations/systemStations";
 import { prisma } from "@/lib/prisma";
 
@@ -13,17 +14,14 @@ interface RouteParams {
 }
 
 // GET: Get specific system station details
-export async function GET(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = params;
 
     const station = await prisma.station.findUnique({
-      where: { 
+      where: {
         id,
-        isSystem: true 
+        isSystem: true,
       },
       include: {
         tracks: {
@@ -47,7 +45,7 @@ export async function GET(
       );
     }
 
-    const config = SYSTEM_STATIONS.find(s => s.id === id);
+    const config = SYSTEM_STATIONS.find((s) => s.id === id);
 
     return NextResponse.json({
       station,
@@ -63,24 +61,28 @@ export async function GET(
 }
 
 // POST: Refresh specific system station
-export async function POST(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = params;
     const { action } = await request.json();
 
     switch (action) {
-      case 'refresh':
+      case "refresh":
         const result = await refreshSystemStationTracks(id);
         return NextResponse.json({
           message: "System station refreshed",
           result,
         });
 
-      case 'preview':
-        const config = SYSTEM_STATIONS.find(s => s.id === id);
+      case "enrich":
+        const enrichResult = await enrichSystemStationTracksInPlace(id);
+        return NextResponse.json({
+          message: "System station tracks enriched with Spotify data",
+          result: enrichResult,
+        });
+
+      case "preview":
+        const config = SYSTEM_STATIONS.find((s) => s.id === id);
         if (!config) {
           return NextResponse.json(
             { error: "System station configuration not found" },
@@ -92,7 +94,7 @@ export async function POST(
           config.stationType,
           config.trackLimit
         );
-        
+
         return NextResponse.json({
           tracks,
           config,
@@ -100,7 +102,7 @@ export async function POST(
 
       default:
         return NextResponse.json(
-          { error: "Invalid action. Use 'refresh' or 'preview'" },
+          { error: "Invalid action. Use 'refresh', 'enrich', or 'preview'" },
           { status: 400 }
         );
     }

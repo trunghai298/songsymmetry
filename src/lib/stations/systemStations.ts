@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getMostStreamedSongs } from "@/app/explore/actions";
 import { updateStationImageFromSpotify, getSystemStationFallbackImage } from "./stationImageService";
+import { getServerSpotifyClient } from "../spotify-sdk/ServerInstance";
 
 export type SystemStationType = 'all-time' | 'kpop' | 'us-uk' | 'random';
 
@@ -183,6 +184,76 @@ export async function getRandomStationTracks(limit: number = 30) {
 }
 
 /**
+ * Enrich track with Spotify data by looking up or searching for spotifyId
+ */
+async function enrichTrackWithSpotifyData(track: any) {
+  try {
+    // Extract song ID from trackId (remove "track-" prefix)
+    const songId = track.trackId.replace('track-', '');
+    
+    // First check if we already have spotifyId in the database
+    const existingSong = await prisma.mostStreamedSongs.findUnique({
+      where: { id: parseInt(songId) },
+      select: { spotifyId: true, name: true, artist: true }
+    });
+    
+    if (existingSong?.spotifyId) {
+      // Use existing spotifyId
+      return {
+        ...track,
+        trackId: existingSong.spotifyId, // Use real Spotify ID instead of ChartMasters ID
+        hasSpotifyId: true
+      };
+    }
+    
+    // If no spotifyId, try to search for it on Spotify
+    if (track.name && track.artist) {
+      try {
+        const spotify = getServerSpotifyClient();
+        const searchQuery = `track:"${track.name}" artist:"${track.artist}"`;
+        const searchResults = await spotify.search(searchQuery, ['track'], undefined, 1);
+        
+        if (searchResults.tracks.items.length > 0) {
+          const spotifyTrack = searchResults.tracks.items[0];
+          
+          // Update the database with the found spotifyId
+          await prisma.mostStreamedSongs.update({
+            where: { id: parseInt(songId) },
+            data: { 
+              spotifyId: spotifyTrack.id,
+              thumbnail: spotifyTrack.album.images[0]?.url || null
+            }
+          });
+          
+          console.log(`Found and cached Spotify ID for song ${songId}: ${spotifyTrack.id}`);
+          
+          return {
+            ...track,
+            trackId: spotifyTrack.id, // Use real Spotify ID
+            imageUrl: spotifyTrack.album.images[0]?.url || track.imageUrl,
+            hasSpotifyId: true
+          };
+        }
+      } catch (error) {
+        console.warn(`Failed to search Spotify for track ${songId}:`, error);
+      }
+    }
+    
+    // Return original track if no Spotify data found
+    return {
+      ...track,
+      hasSpotifyId: false
+    };
+  } catch (error) {
+    console.error(`Error enriching track ${track.trackId}:`, error);
+    return {
+      ...track,
+      hasSpotifyId: false
+    };
+  }
+}
+
+/**
  * Get tracks for a specific system station type
  */
 export async function getSystemStationTracks(stationType: SystemStationType, limit?: number) {
@@ -198,6 +269,131 @@ export async function getSystemStationTracks(stationType: SystemStationType, lim
     default:
       throw new Error(`Unknown station type: ${stationType}`);
   }
+}
+
+/**
+ * Get enriched tracks for a specific system station type with Spotify data
+ */
+export async function getEnrichedSystemStationTracks(stationType: SystemStationType, limit?: number) {
+  const tracks = await getSystemStationTracks(stationType, limit);
+  
+  // Enrich tracks with Spotify data (limit concurrency to avoid rate limits)
+  const enrichedTracks = [];
+  const batchSize = 5; // Process 5 tracks at a time
+  
+  for (let i = 0; i < tracks.length; i += batchSize) {
+    const batch = tracks.slice(i, i + batchSize);
+    const enrichedBatch = await Promise.all(
+      batch.map(track => enrichTrackWithSpotifyData(track))
+    );
+    enrichedTracks.push(...enrichedBatch);
+    
+    // Small delay between batches to avoid rate limiting
+    if (i + batchSize < tracks.length) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+  
+  return enrichedTracks;
+}
+
+/**
+ * Enrich existing system station tracks with Spotify data
+ */
+export async function enrichSystemStationTracksInPlace(stationId: string) {
+  const station = await prisma.station.findUnique({
+    where: { id: stationId, isSystem: true },
+    include: { tracks: true }
+  });
+
+  if (!station) {
+    throw new Error('System station not found');
+  }
+
+  console.log(`Enriching ${station.tracks.length} tracks for station ${stationId} with Spotify data...`);
+  
+  let enrichedCount = 0;
+  const batchSize = 5;
+  
+  for (let i = 0; i < station.tracks.length; i += batchSize) {
+    const batch = station.tracks.slice(i, i + batchSize);
+    
+    await Promise.all(batch.map(async (track) => {
+      try {
+        // Skip if already has a real Spotify ID (not starting with "track-")
+        if (!track.trackId.startsWith('track-')) {
+          return;
+        }
+        
+        const songId = track.trackId.replace('track-', '');
+        
+        // Check if we already have spotifyId in the database
+        const existingSong = await prisma.mostStreamedSongs.findUnique({
+          where: { id: parseInt(songId) },
+          select: { spotifyId: true, thumbnail: true }
+        });
+        
+        if (existingSong?.spotifyId) {
+          // Update track with Spotify ID
+          await prisma.stationTrack.update({
+            where: { id: track.id },
+            data: { 
+              trackId: existingSong.spotifyId,
+              imageUrl: existingSong.thumbnail || track.imageUrl
+            }
+          });
+          enrichedCount++;
+          return;
+        }
+        
+        // If no spotifyId, try to search for it
+        if (track.name && track.artist) {
+          try {
+            const spotify = getServerSpotifyClient();
+            const searchQuery = `track:"${track.name}" artist:"${track.artist}"`;
+            const searchResults = await spotify.search(searchQuery, ['track'], undefined, 1);
+            
+            if (searchResults.tracks.items.length > 0) {
+              const spotifyTrack = searchResults.tracks.items[0];
+              
+              // Update database with found spotifyId
+              await prisma.mostStreamedSongs.update({
+                where: { id: parseInt(songId) },
+                data: { 
+                  spotifyId: spotifyTrack.id,
+                  thumbnail: spotifyTrack.album.images[0]?.url || null
+                }
+              });
+              
+              // Update station track with Spotify ID
+              await prisma.stationTrack.update({
+                where: { id: track.id },
+                data: { 
+                  trackId: spotifyTrack.id,
+                  imageUrl: spotifyTrack.album.images[0]?.url || track.imageUrl
+                }
+              });
+              
+              enrichedCount++;
+              console.log(`Enriched track ${track.name} with Spotify ID: ${spotifyTrack.id}`);
+            }
+          } catch (error) {
+            console.warn(`Failed to search Spotify for track ${track.name}:`, error);
+          }
+        }
+      } catch (error) {
+        console.error(`Error enriching track ${track.id}:`, error);
+      }
+    }));
+    
+    // Small delay between batches
+    if (i + batchSize < station.tracks.length) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+  }
+  
+  console.log(`Enriched ${enrichedCount} tracks for station ${stationId}`);
+  return { enrichedCount, totalTracks: station.tracks.length };
 }
 
 /**
@@ -265,8 +461,9 @@ export async function refreshSystemStationTracks(stationId: string) {
     throw new Error('System station configuration not found');
   }
 
-  // Get new tracks
-  const newTracks = await getSystemStationTracks(
+  // Get new tracks with Spotify enrichment
+  console.log(`Refreshing system station ${stationId} with Spotify enrichment...`);
+  const newTracks = await getEnrichedSystemStationTracks(
     station.stationType as SystemStationType,
     config.trackLimit
   );

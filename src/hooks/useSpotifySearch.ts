@@ -28,7 +28,7 @@ export function useSpotifySearch() {
       try {
         console.log("Making Spotify API search call:", q);
         // Ensure we're using the correct ItemTypes from SDK
-        const results = await client.search(q, ["track"], "US", 10 as any);
+        const results = await client.search(q, ["track"], undefined, 10);
         // Check if results.tracks exists and has items before setting the result
         if (results?.tracks?.items && results.tracks.items.length > 0) {
           console.log("Found tracks:", results.tracks.items.length);

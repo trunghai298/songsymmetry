@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useSocket } from "@/hooks/useSocket";
 import { usePlayer } from "@/hooks/usePlayer";
 import { Track } from "@spotify/web-api-ts-sdk";
-import { useSpotify } from "@/app/components/SpotifyProvider";
+import { useSpotify } from "@/hooks/useSpotify";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -25,7 +25,20 @@ interface Station {
   playlistId: string | null;
   createdAt: string;
   updatedAt: string;
+  isPlaying?: boolean;
+  currentTrackId?: string | null;
+  currentSpotifyId?: string | null;
+  playingStartedAt?: string | null;
+  playingUserId?: string | null;
+  lastActivityAt?: string | null;
+  isSystem?: boolean;
+  stationType?: string | null;
   owner: {
+    id: string;
+    name: string | null;
+    image: string | null;
+  };
+  playingUser?: {
     id: string;
     name: string | null;
     image: string | null;
@@ -80,8 +93,13 @@ export default function StationDetailPage() {
     playPlaylist: setPlaylist,
     playTrack: setTrack,
     playQueueFromIndex,
+    startPlayback,
+    currentTrack,
+    isPlaying,
+    spotifyPlaybackState,
+    getCurrentPlaybackState,
   } = usePlayer();
-  const spotify = useSpotify();
+  const { client: spotify } = useSpotify();
 
   const [station, setStation] = useState<Station | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -94,6 +112,134 @@ export default function StationDetailPage() {
   const [isLeaving, setIsLeaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [addingTrackId, setAddingTrackId] = useState<string | null>(null);
+  const [isPlayingStation, setIsPlayingStation] = useState(false);
+  const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
+  const [debugShowAnimation, setDebugShowAnimation] = useState(false);
+  const [localPlayingTrack, setLocalPlayingTrack] = useState<StationTrack | null>(null);
+
+  // Debug localPlayingTrack changes
+  useEffect(() => {
+    console.log("🔄 LocalPlayingTrack changed:", localPlayingTrack?.name || "null");
+  }, [localPlayingTrack]);
+
+  // Check current playback state on page load and periodically to detect playing songs
+  useEffect(() => {
+    let lastPlayingTrackId: string | null = null;
+    
+    const checkCurrentPlayback = async () => {
+      try {
+        const state = await getCurrentPlaybackState();
+        if (state?.item && state.is_playing) {
+          const currentTrackId = state.item.id;
+          
+          // Only process if the track has changed
+          if (currentTrackId !== lastPlayingTrackId) {
+            console.log("🔄 Track changed to:", state.item.name, currentTrackId);
+            lastPlayingTrackId = currentTrackId;
+            
+            // Try to find matching station track
+            if (station?.tracks) {
+              const foundMatch = station.tracks.find(track => {
+                // Direct ID match for enriched tracks
+                if (!track.trackId.startsWith("track-") && track.trackId === currentTrackId) {
+                  return true;
+                }
+                // Name/artist match for ChartMasters tracks
+                if (track.name && track.artist && state.item.name && state.item.type === 'track' && 'artists' in state.item && state.item.artists?.[0]?.name) {
+                  const normalizeString = (str: string) => str.toLowerCase().replace(/[^\w\s]/g, "").trim();
+                  const trackName = normalizeString(track.name);
+                  const trackArtist = normalizeString(track.artist);
+                  const stateName = normalizeString(state.item.name);
+                  const stateArtist = normalizeString(state.item.artists[0].name);
+                  return trackName === stateName && trackArtist === stateArtist;
+                }
+                return false;
+              });
+              
+              if (foundMatch) {
+                console.log("✅ Found matching station track:", foundMatch.name);
+                setLocalPlayingTrack(foundMatch);
+                // Update database state (fire and forget to avoid blocking)
+                updateStationPlayingState(true, foundMatch.id, currentTrackId).catch(console.error);
+              } else {
+                console.log("❌ No matching station track found, clearing local playing track");
+                setLocalPlayingTrack(null);
+                // Update database to show not playing from this station (fire and forget)
+                updateStationPlayingState(false).catch(console.error);
+              }
+            }
+          }
+        } else {
+          // No track playing or paused
+          if (lastPlayingTrackId !== null) {
+            console.log("🔇 Playback stopped or paused");
+            lastPlayingTrackId = null;
+            setLocalPlayingTrack(null);
+            // Update database to show not playing (fire and forget)
+            updateStationPlayingState(false).catch(console.error);
+          }
+        }
+      } catch (error) {
+        console.error("Error checking playback state:", error);
+      }
+    };
+
+    // Check immediately when station data is loaded
+    if (station && !isLoading) {
+      checkCurrentPlayback();
+    }
+
+    // Set up periodic checking every 3 seconds for better responsiveness
+    const interval = setInterval(checkCurrentPlayback, 3000);
+    
+    return () => clearInterval(interval);
+  }, [station, isLoading, getCurrentPlaybackState]);
+
+  // Debug effect to log player state changes and trigger UI updates
+  useEffect(() => {
+    console.log("🎵 Player state changed:");
+    console.log("- currentTrack:", currentTrack);
+    console.log("- isPlaying:", isPlaying);
+    console.log("- spotifyPlaybackState.item:", spotifyPlaybackState?.item);
+    console.log(
+      "- spotifyPlaybackState.is_playing:",
+      spotifyPlaybackState?.is_playing
+    );
+
+    // Also log if we have any tracks in the station that might match
+    if (station?.tracks && (currentTrack || spotifyPlaybackState?.item)) {
+      const playingItem = spotifyPlaybackState?.item || currentTrack;
+      console.log(
+        "🔍 Checking station tracks for matches with:",
+        playingItem?.name
+      );
+
+      // Force a check of all tracks to see matching logic
+      let foundMatch = false;
+      station.tracks.forEach((track, index) => {
+        const match = isTrackCurrentlyPlaying(track);
+        if (match) {
+          console.log(`✅ Found match at index ${index}:`, track.name);
+          foundMatch = true;
+        }
+      });
+
+      if (!foundMatch && (currentTrack || spotifyPlaybackState?.item)) {
+        console.log("❌ No matches found in station tracks");
+        console.log("🔍 Detailed comparison for first few tracks:");
+        station.tracks.slice(0, 3).forEach((track, index) => {
+          console.log(`\n--- Track ${index}: ${track.name} ---`);
+          isTrackCurrentlyPlaying(track); // This will trigger detailed debug logs
+        });
+      }
+      
+      // Clear local playing track once we have a successful match from Spotify state
+      if (foundMatch && localPlayingTrack) {
+        console.log("🔄 Clearing local playing track, Spotify state is now reliable");
+        setLocalPlayingTrack(null);
+      }
+    }
+  }, [currentTrack, isPlaying, spotifyPlaybackState, station?.tracks, localPlayingTrack]);
 
   // Socket connection
   const { isConnected, joinStation, leaveStation, addTrack, subscribe } =
@@ -397,15 +543,15 @@ export default function StationDetailPage() {
 
     setIsSearching(true);
     try {
-      // First try using the spotify SDK directly if available
-      if (spotify?.sdk) {
-        const results = await spotify.sdk.search(
+      // First try using the spotify client directly if available
+      if (spotify) {
+        const results = await spotify.search(
           searchQuery,
           ["track"],
           undefined,
           10
         );
-        setSearchResults(results.tracks.items);
+        setSearchResults(results.tracks?.items || []);
       } else {
         // Fall back to our custom API endpoint if SDK is not initialized
         console.log("Spotify SDK not available, using fallback API");
@@ -520,74 +666,96 @@ export default function StationDetailPage() {
       return;
     }
 
+    setPlayingTrackId(track.id);
     try {
-      // If we have an index and other tracks, play the whole station queue from this track
-      if (
-        typeof trackIndex === "number" &&
-        station?.tracks &&
-        station.tracks.length > 1
-      ) {
-        toast({
-          title: "Loading tracks...",
-          description: "Searching for tracks on Spotify",
-        });
-
-        // Convert all station tracks to Spotify Track objects
-        const spotifyTrackPromises = station.tracks
-          .filter((t) => t.trackId)
-          .map(convertStationTrackToSpotifyTrack);
-
-        const spotifyTrackResults = await Promise.all(spotifyTrackPromises);
-        const spotifyTracks: Track[] = spotifyTrackResults.filter((track): track is Track => track !== null);
-
-        if (spotifyTracks.length === 0) {
-          toast({
-            title: "No tracks found",
-            description: "Unable to find any tracks on Spotify",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        // Find the correct index in the filtered array  
-        const originalTrackIndex = Math.min(trackIndex, spotifyTracks.length - 1);
-        playQueueFromIndex(spotifyTracks, Math.max(0, originalTrackIndex));
-
-        toast({
-          title: "Playing track",
-          description: `Playing "${track.name}" from station queue`,
-        });
-      } else {
-        // Just play this single track
-        toast({
-          title: "Loading track...",
-          description: "Searching for track on Spotify",
-        });
-
-        const trackData = await convertStationTrackToSpotifyTrack(track);
-        if (!trackData) {
-          toast({
-            title: "Track not found",
-            description: `Unable to find "${track.name}" on Spotify`,
-            variant: "destructive",
-          });
-          return;
-        }
-
-        setTrack(trackData);
-
-        toast({
-          title: "Playing track",
-          description: `Playing "${track.name}"`,
-        });
-      }
-    } catch (error) {
-      console.error("Error playing track:", error);
+      // Always play just the single track (removed queue logic)
       toast({
-        title: "Error",
-        description: "Failed to play track",
+        title: "Loading track...",
+        description: "Searching for track on Spotify",
+      });
+
+      const trackData = await convertStationTrackToSpotifyTrack(track);
+      if (!trackData) {
+        toast({
+          title: "Track not found",
+          description: `Unable to find "${track.name}" on Spotify`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Get available devices for actual playback
+      const devices = await getAvailableDevices();
+      if (devices.length === 0) {
+        toast({
+          title: "No Active Device",
+          description: "Please open Spotify on a device first",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const activeDevice =
+        devices.find((device: any) => device.is_active) || devices[0];
+
+      // Start actual Spotify playback for single track
+      await startPlayback([trackData.uri], activeDevice.id || undefined);
+
+      // Update Redux state for UI
+      setTrack(trackData);
+
+      console.log("🎵 Single track playback started:");
+      console.log("- Playing track URI:", trackData.uri);
+      console.log("- Playing track ID:", trackData.id);
+      console.log("- Playing track name:", trackData.name);
+      console.log("- Device used:", activeDevice.name || activeDevice.id);
+      console.log("- Original station track:", track.name, track.trackId);
+      console.log("- ID Match Check:", trackData.id === track.trackId ? "✅ MATCH" : "❌ NO MATCH");
+
+      // Store the currently playing track for immediate UI update
+      setLocalPlayingTrack(track);
+
+      // Update database with playing state (fire and forget to avoid blocking UI)
+      updateStationPlayingState(true, track.id, trackData.id).catch(console.error);
+
+      // Force refresh player state after a short delay
+      setTimeout(async () => {
+        console.log("🔄 Force refreshing player state...");
+        const newState = await getCurrentPlaybackState();
+        console.log(
+          "🔄 New player state:",
+          newState?.item?.name,
+          newState?.is_playing
+        );
+        console.log("🔄 ID comparison:", newState?.item?.id, "vs", track.trackId);
+        console.log("🔄 Should match:", newState?.item?.id === track.trackId ? "✅ YES" : "❌ NO");
+      }, 2000);
+
+      toast({
+        title: "Playing track",
+        description: `Playing "${track.name}"`,
+      });
+
+    } catch (error: any) {
+      console.error("Error playing track:", error);
+
+      // Handle specific Spotify API errors
+      let errorMessage = "Failed to play track";
+      if (error?.message?.includes("No active device")) {
+        errorMessage = "Please open Spotify on a device first";
+      } else if (error?.message?.includes("Premium")) {
+        errorMessage = "Spotify Premium required for playback control";
+      } else if (error?.message?.includes("Authentication")) {
+        errorMessage = "Please sign in to Spotify again";
+      }
+
+      toast({
+        title: "Playback Error",
+        description: errorMessage,
         variant: "destructive",
       });
+    } finally {
+      setPlayingTrackId(null);
     }
   };
 
@@ -610,6 +778,7 @@ export default function StationDetailPage() {
       return;
     }
 
+    setIsPlayingStation(true);
     try {
       // If station has a Spotify playlist, play it directly
       if (station.playlistId) {
@@ -628,7 +797,9 @@ export default function StationDetailPage() {
         .map(convertStationTrackToSpotifyTrack);
 
       const spotifyTrackResults = await Promise.all(spotifyTrackPromises);
-      const spotifyTracks: Track[] = spotifyTrackResults.filter((track): track is Track => track !== null);
+      const spotifyTracks: Track[] = spotifyTrackResults.filter(
+        (track): track is Track => track !== null
+      );
 
       if (spotifyTracks.length === 0) {
         toast({
@@ -638,20 +809,88 @@ export default function StationDetailPage() {
         });
         return;
       }
-      // Play the queue starting from the first track
+      // Get available devices for actual playback
+      const devices = await getAvailableDevices();
+      if (devices.length === 0) {
+        toast({
+          title: "No Active Device",
+          description: "Please open Spotify on a device first",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const activeDevice =
+        devices.find((device: any) => device.is_active) || devices[0];
+
+      // Start actual Spotify playback with track URIs
+      const trackUris = spotifyTracks.map((track) => track.uri);
+      await startPlayback(trackUris, activeDevice.id || undefined);
+
+      // Update Redux state for UI
       playQueueFromIndex(spotifyTracks, 0);
+
+      console.log("🎵 Station playback started:");
+      console.log("- First track URI:", trackUris[0]);
+      console.log("- First track ID:", spotifyTracks[0]?.id);
+      console.log("- First track name:", spotifyTracks[0]?.name);
+      console.log("- Device used:", activeDevice.name || activeDevice.id);
+
+      // Always clear the previous local playing track first
+      console.log("🧹 Clearing previous local playing track");
+      setLocalPlayingTrack(null);
+
+      // Simple approach: just set the first station track as playing
+      // since we're playing the station in its original order
+      const firstStationTrack = station.tracks[0];
+      if (firstStationTrack) {
+        console.log("🎯 Setting first station track as playing:", firstStationTrack.name);
+        setTimeout(() => {
+          setLocalPlayingTrack(firstStationTrack);
+        }, 100);
+        
+        // Update database with station playing state (fire and forget)
+        const firstSpotifyTrack = spotifyTracks[0];
+        updateStationPlayingState(true, firstStationTrack.id, firstSpotifyTrack?.id).catch(console.error);
+      } else {
+        console.log("❌ No tracks in station");
+      }
+
+      // Force refresh player state after a short delay
+      setTimeout(async () => {
+        console.log("🔄 Force refreshing player state...");
+        const newState = await getCurrentPlaybackState();
+        console.log(
+          "🔄 New player state:",
+          newState?.item?.name,
+          newState?.is_playing
+        );
+      }, 2000);
 
       toast({
         title: "Playing station",
         description: `Started playing ${spotifyTracks.length} tracks from ${station.name}`,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error playing station:", error);
+
+      // Handle specific Spotify API errors
+      let errorMessage = "Failed to play station tracks";
+      if (error?.message?.includes("No active device")) {
+        errorMessage = "Please open Spotify on a device first";
+      } else if (error?.message?.includes("Premium")) {
+        errorMessage = "Spotify Premium required for playback control";
+      } else if (error?.message?.includes("Authentication")) {
+        errorMessage = "Please sign in to Spotify again";
+      }
+
       toast({
-        title: "Error",
-        description: "Failed to play station tracks",
+        title: "Playback Error",
+        description: errorMessage,
         variant: "destructive",
       });
+    } finally {
+      setIsPlayingStation(false);
     }
   };
 
@@ -759,17 +998,39 @@ export default function StationDetailPage() {
     });
   };
 
-  // Utility function to search for a track on Spotify
-  const searchSpotifyTrack = async (name: string, artist: string): Promise<Track | null> => {
+  // Get available devices for Spotify playback
+  const getAvailableDevices = async () => {
     try {
-      if (spotify?.sdk) {
+      if (!spotify) return [];
+      const devices = await spotify.getAvailableDevices();
+      return devices.devices || [];
+    } catch (error) {
+      console.error("Error getting devices:", error);
+      return [];
+    }
+  };
+
+  // Utility function to search for a track on Spotify
+  const searchSpotifyTrack = async (
+    name: string,
+    artist: string
+  ): Promise<Track | null> => {
+    try {
+      if (spotify) {
         const searchQuery = `track:"${name}" artist:"${artist}"`;
-        const results = await spotify.sdk.search(searchQuery, ["track"], undefined, 1);
-        return results.tracks.items[0] || null;
+        const results = await spotify.search(
+          searchQuery,
+          ["track"],
+          undefined,
+          1
+        );
+        return results.tracks?.items[0] || null;
       } else {
         // Fallback to API endpoint
         const response = await fetch(
-          `/api/spotify/search?query=${encodeURIComponent(`track:"${name}" artist:"${artist}"`)}&type=track&limit=1`
+          `/api/spotify/search?query=${encodeURIComponent(
+            `track:"${name}" artist:"${artist}"`
+          )}&type=track&limit=1`
         );
         if (!response.ok) return null;
         const data = await response.json();
@@ -787,7 +1048,7 @@ export default function StationDetailPage() {
   ): Promise<Track | null> => {
     // Check if this is a real Spotify track ID (not starting with "track-")
     const isRealSpotifyId = !stationTrack.trackId.startsWith("track-");
-    
+
     // For ChartMasters data, check if we can get the spotifyId from the database
     if (!isRealSpotifyId && stationTrack.trackId.startsWith("track-")) {
       const songId = stationTrack.trackId.replace("track-", "");
@@ -867,8 +1128,30 @@ export default function StationDetailPage() {
             };
           } else {
             // No spotifyId yet, search for it
-            const spotifyTrack = await searchSpotifyTrack(data.name, data.artist);
+            const spotifyTrack = await searchSpotifyTrack(
+              data.name,
+              data.artist
+            );
             if (spotifyTrack) {
+              // Update the database with the found spotifyId
+              try {
+                await fetch("/api/songs/update-spotify-id", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    songId: songId,
+                    spotifyId: spotifyTrack.id,
+                    thumbnail: spotifyTrack.album.images[0]?.url,
+                  }),
+                });
+                console.log(
+                  `Updated song ${songId} with Spotify ID: ${spotifyTrack.id}`
+                );
+              } catch (error) {
+                console.warn("Failed to update spotifyId in database:", error);
+              }
               return spotifyTrack;
             }
           }
@@ -877,7 +1160,7 @@ export default function StationDetailPage() {
         console.warn("Failed to get spotifyId from database:", error);
       }
     }
-    
+
     if (isRealSpotifyId) {
       // Use the existing Spotify track ID directly
       return {
@@ -950,11 +1233,41 @@ export default function StationDetailPage() {
     } else {
       // This is ChartMasters data - search for the track on Spotify
       if (!stationTrack.name || !stationTrack.artist) {
-        console.warn("Missing track name or artist for ChartMasters track:", stationTrack);
+        console.warn(
+          "Missing track name or artist for ChartMasters track:",
+          stationTrack
+        );
         return null;
       }
-      
-      const spotifyTrack = await searchSpotifyTrack(stationTrack.name, stationTrack.artist);
+
+      const spotifyTrack = await searchSpotifyTrack(
+        stationTrack.name,
+        stationTrack.artist
+      );
+
+      // If we found the track and this is ChartMasters data, update the database
+      if (spotifyTrack && stationTrack.trackId.startsWith("track-")) {
+        const songId = stationTrack.trackId.replace("track-", "");
+        try {
+          await fetch("/api/songs/update-spotify-id", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              songId: songId,
+              spotifyId: spotifyTrack.id,
+              thumbnail: spotifyTrack.album.images[0]?.url,
+            }),
+          });
+          console.log(
+            `Updated song ${songId} with Spotify ID: ${spotifyTrack.id}`
+          );
+        } catch (error) {
+          console.warn("Failed to update spotifyId in database:", error);
+        }
+      }
+
       return spotifyTrack;
     }
   };
@@ -969,6 +1282,147 @@ export default function StationDetailPage() {
     const user = getAuthUser(session);
     if (!user?.id || !station) return false;
     return station.owner.id === user.id;
+  };
+
+  // Function to update station playing state in database
+  const updateStationPlayingState = async (
+    isPlaying: boolean,
+    currentTrackId?: string,
+    currentSpotifyId?: string
+  ) => {
+    try {
+      const response = await fetch(`/api/stations/${stationId}/playing-state`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          isPlaying,
+          currentTrackId: currentTrackId || null,
+          currentSpotifyId: currentSpotifyId || null,
+          playingStartedAt: isPlaying ? new Date().toISOString() : null,
+        }),
+      });
+
+      if (!response.ok) {
+        console.error("Failed to update station playing state");
+      } else {
+        console.log("✅ Updated station playing state in database");
+      }
+    } catch (error) {
+      console.error("Error updating station playing state:", error);
+    }
+  };
+
+  // Check if a specific track is currently playing
+  const isTrackCurrentlyPlaying = (track: StationTrack): boolean => {
+    // First check database state - this is the most reliable source
+    if (station?.isPlaying && station?.currentTrackId === track.id) {
+      console.log("✅ Database playing track match:", track.name);
+      return true;
+    }
+    
+    // Second check if this is the track we just started playing locally
+    if (localPlayingTrack && localPlayingTrack.id === track.id) {
+      console.log("✅ Local playing track match:", track.name);
+      return true;
+    }
+    // Enhanced debug logging
+    const debugTrackMatch = (source: string, playingTrack: any) => {
+      console.log(
+        `🔍 [${source}] Checking track: "${track.name}" by "${track.artist}" (trackId: ${track.trackId})`
+      );
+      console.log(
+        `🔍 [${source}] Against playing: "${playingTrack?.name}" by "${playingTrack?.artists?.[0]?.name}" (id: ${playingTrack?.id})`
+      );
+
+      // Check direct ID match for enriched tracks
+      if (!track.trackId.startsWith("track-")) {
+        const idMatch = playingTrack.id === track.trackId;
+        console.log(
+          `🔍 [${source}] Direct ID comparison: "${playingTrack.id}" === "${track.trackId}" = ${idMatch}`
+        );
+        return idMatch;
+      }
+
+      // Check name/artist match for ChartMasters tracks
+      if (
+        playingTrack.name &&
+        track.name &&
+        playingTrack.artists?.[0]?.name &&
+        track.artist
+      ) {
+        const normalizeString = (str: string) =>
+          str
+            .toLowerCase()
+            .replace(/[^\w\s]/g, "")
+            .trim();
+        const playingTrackName = normalizeString(playingTrack.name);
+        const playingArtist = normalizeString(playingTrack.artists[0].name);
+        const stationTrackName = normalizeString(track.name);
+        const stationArtist = normalizeString(track.artist);
+
+        const nameMatch = playingTrackName === stationTrackName;
+        const artistMatch = playingArtist === stationArtist;
+
+        console.log(
+          `🔍 [${source}] Name comparison: "${playingTrackName}" === "${stationTrackName}" = ${nameMatch}`
+        );
+        console.log(
+          `🔍 [${source}] Artist comparison: "${playingArtist}" === "${stationArtist}" = ${artistMatch}`
+        );
+
+        return nameMatch && artistMatch;
+      }
+
+      console.log(`🔍 [${source}] No valid comparison possible`);
+      return false;
+    };
+
+    // First check using spotifyPlaybackState (most reliable)
+    if (spotifyPlaybackState?.item && spotifyPlaybackState.is_playing) {
+      const isMatch = debugTrackMatch(
+        "SpotifyPlaybackState",
+        spotifyPlaybackState.item
+      );
+      if (isMatch) {
+        console.log("✅ Spotify playback state match:", track.name);
+        return true;
+      }
+    }
+
+    // Fallback to currentTrack from Redux
+    if (currentTrack && isPlaying) {
+      const isMatch = debugTrackMatch("ReduxCurrentTrack", currentTrack);
+      if (isMatch) {
+        console.log("✅ Redux currentTrack match:", track.name);
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  // Function to reorder tracks with currently playing track at the top
+  const getOrderedTracks = (tracks: StationTrack[]): StationTrack[] => {
+    if (!tracks || tracks.length === 0) return [];
+
+    const playingTrackIndex = tracks.findIndex((track) =>
+      isTrackCurrentlyPlaying(track)
+    );
+
+    if (playingTrackIndex === -1) {
+      // No currently playing track, return original order
+      return tracks;
+    }
+
+    // Move playing track to the top
+    const playingTrack = tracks[playingTrackIndex];
+    const otherTracks = tracks.filter(
+      (_, index) => index !== playingTrackIndex
+    );
+
+    return [playingTrack, ...otherTracks];
   };
 
   if (isLoading) {
@@ -1019,6 +1473,28 @@ export default function StationDetailPage() {
   return (
     <Container>
       <div className="flex flex-col gap-6">
+        {/* Back button */}
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            onClick={() => router.push("/station")}
+            className="flex items-center gap-2 text-gray-400 hover:text-white hover:bg-gray-800/50 transition-colors"
+          >
+            <i className="bi bi-arrow-left text-lg"></i>
+            <span className="hidden sm:inline">Back to Stations</span>
+            <span className="sm:hidden">Back</span>
+          </Button>
+          {/* Debug button - remove this later */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setDebugShowAnimation(!debugShowAnimation)}
+            className="text-xs text-black"
+          >
+            {debugShowAnimation ? "Hide" : "Show"} Animation Test
+          </Button>
+        </div>
+
         {/* Station header */}
         <div className="flex flex-col md:flex-row gap-6">
           {/* Station image */}
@@ -1235,11 +1711,22 @@ export default function StationDetailPage() {
                   <Button
                     variant="default"
                     onClick={handlePlayStation}
-                    className="flex-1 sm:w-32 lg:w-36 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+                    disabled={isPlayingStation}
+                    className="flex-1 sm:w-32 lg:w-36 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <i className="bi bi-play-fill mr-2"></i>
-                    <span className="hidden sm:inline">Play Station</span>
-                    <span className="sm:hidden">Play</span>
+                    {isPlayingStation ? (
+                      <>
+                        <span className="mr-2 inline-block w-4 h-4 border-2 border-t-transparent border-white rounded-full animate-spin"></span>
+                        <span className="hidden sm:inline">Loading...</span>
+                        <span className="sm:hidden">Loading</span>
+                      </>
+                    ) : (
+                      <>
+                        <i className="bi bi-play-fill mr-2"></i>
+                        <span className="hidden sm:inline">Play Station</span>
+                        <span className="sm:hidden">Play</span>
+                      </>
+                    )}
                   </Button>
                 </>
               ) : (
@@ -1291,11 +1778,22 @@ export default function StationDetailPage() {
                   <Button
                     variant="default"
                     onClick={handlePlayStation}
-                    className="flex-1 sm:w-32 lg:w-36 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+                    disabled={isPlayingStation}
+                    className="flex-1 sm:w-32 lg:w-36 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <i className="bi bi-play-fill mr-2"></i>
-                    <span className="hidden sm:inline">Play Station</span>
-                    <span className="sm:hidden">Play</span>
+                    {isPlayingStation ? (
+                      <>
+                        <span className="mr-2 inline-block w-4 h-4 border-2 border-t-transparent border-white rounded-full animate-spin"></span>
+                        <span className="hidden sm:inline">Loading...</span>
+                        <span className="sm:hidden">Loading</span>
+                      </>
+                    ) : (
+                      <>
+                        <i className="bi bi-play-fill mr-2"></i>
+                        <span className="hidden sm:inline">Play Station</span>
+                        <span className="sm:hidden">Play</span>
+                      </>
+                    )}
                   </Button>
                 </>
               )}
@@ -1349,60 +1847,134 @@ export default function StationDetailPage() {
             ) : (
               <div className="space-y-2">
                 {station.tracks && station.tracks.length > 0 ? (
-                  station.tracks.map((track, index) => (
-                    <div
-                      key={track.id}
-                      className="flex items-center justify-between p-3 bg-gray-800/70 rounded-lg hover:bg-gray-700/90 transition-all duration-200 group border border-transparent hover:border-gray-700 hover:shadow-md"
-                    >
-                      <div className="flex items-center gap-3">
-                        {track.imageUrl && (
-                          <img
-                            src={track.imageUrl}
-                            alt={track.name || "Track"}
-                            className="w-12 h-12 rounded"
-                          />
-                        )}
-                        {!track.imageUrl && (
-                          <div className="w-12 h-12 bg-gradient-to-br from-gray-700 to-gray-800 rounded flex items-center justify-center">
-                            <i className="bi bi-music-note text-purple-400"></i>
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0 px-3">
-                          <p className="font-medium text-white truncate">
-                            {track.name || "Unknown Track"}
-                          </p>
-                          <p className="text-sm text-gray-400 truncate">
-                            {track.artist || "Unknown Artist"}
-                          </p>
-                          <div className="flex items-center mt-1 text-xs text-gray-500">
-                            <Avatar className="h-4 w-4 mr-1">
-                              <AvatarImage
-                                src={track.addedBy?.image || undefined}
-                              />
-                              <AvatarFallback className="text-[8px]">
-                                {track.addedBy?.name?.charAt(0) || "?"}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span>
-                              Added by {track.addedBy?.name || "Unknown"} •{" "}
-                              {formatDate(track.addedAt)}
-                            </span>
+                  getOrderedTracks(station.tracks).map((track, index) => {
+                    // Get the original index for the play function
+                    const originalIndex = station.tracks.findIndex(
+                      (t) => t.id === track.id
+                    );
+                    return (
+                      <div
+                        key={track.id}
+                        className={`flex items-center justify-between p-3 rounded-lg transition-all duration-200 group hover:shadow-md ${
+                          isTrackCurrentlyPlaying(track) ||
+                          (debugShowAnimation && index === 0)
+                            ? "bg-green-500/10 border border-green-500/30 hover:bg-green-500/15"
+                            : "bg-gray-800/70 border border-transparent hover:bg-gray-700/90 hover:border-gray-700"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          {track.imageUrl && (
+                            <img
+                              src={track.imageUrl}
+                              alt={track.name || "Track"}
+                              className="w-12 h-12 rounded"
+                            />
+                          )}
+                          {!track.imageUrl && (
+                            <div className="w-12 h-12 bg-gradient-to-br from-gray-700 to-gray-800 rounded flex items-center justify-center">
+                              <i className="bi bi-music-note text-purple-400"></i>
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0 px-3">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-white truncate">
+                                {track.name || "Unknown Track"}
+                              </p>
+                              {(isTrackCurrentlyPlaying(track) ||
+                                (debugShowAnimation && index === 0)) && (
+                                <div className="flex items-center gap-1 text-green-400">
+                                  <div
+                                    className="flex items-end space-x-0.5"
+                                    style={{ height: "16px" }}
+                                  >
+                                    <div
+                                      className="w-1 bg-green-400 rounded-full"
+                                      style={{
+                                        height: "6px",
+                                        animation:
+                                          "audioBar1 1.2s ease-in-out infinite",
+                                      }}
+                                    ></div>
+                                    <div
+                                      className="w-1 bg-green-400 rounded-full"
+                                      style={{
+                                        height: "12px",
+                                        animation:
+                                          "audioBar2 1.5s ease-in-out infinite",
+                                      }}
+                                    ></div>
+                                    <div
+                                      className="w-1 bg-green-400 rounded-full"
+                                      style={{
+                                        height: "8px",
+                                        animation:
+                                          "audioBar3 1.1s ease-in-out infinite",
+                                      }}
+                                    ></div>
+                                    <div
+                                      className="w-1 bg-green-400 rounded-full"
+                                      style={{
+                                        height: "14px",
+                                        animation:
+                                          "audioBar4 1.3s ease-in-out infinite",
+                                      }}
+                                    ></div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-400 truncate">
+                              {track.artist || "Unknown Artist"}
+                            </p>
+                            <div className="flex items-center mt-1 text-xs text-gray-500">
+                              <Avatar className="h-4 w-4 mr-1">
+                                <AvatarImage
+                                  src={track.addedBy?.image || undefined}
+                                />
+                                <AvatarFallback className="text-[8px]">
+                                  {track.addedBy?.name?.charAt(0) || "?"}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span>
+                                Added by {track.addedBy?.name || "Unknown"} •{" "}
+                                {formatDate(track.addedAt)}
+                              </span>
+                            </div>
                           </div>
                         </div>
+                        <div className="flex space-x-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              handlePlayTrack(track, originalIndex)
+                            }
+                            disabled={playingTrackId === track.id}
+                            className={`rounded-full h-9 w-9 p-0 text-white group-hover:scale-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 ${
+                              isTrackCurrentlyPlaying(track) ||
+                              (debugShowAnimation && index === 0)
+                                ? "bg-green-500 hover:bg-green-600"
+                                : "bg-gray-700/50 hover:bg-green-600"
+                            }`}
+                            title={
+                              isTrackCurrentlyPlaying(track)
+                                ? `"${track.name}" is currently playing`
+                                : `Play "${track.name}" and continue with station queue`
+                            }
+                          >
+                            {playingTrackId === track.id ? (
+                              <span className="inline-block w-4 h-4 border-2 border-t-transparent border-white rounded-full animate-spin"></span>
+                            ) : isTrackCurrentlyPlaying(track) ||
+                              (debugShowAnimation && index === 0) ? (
+                              <i className="bi bi-pause-fill text-lg"></i>
+                            ) : (
+                              <i className="bi bi-play-fill text-lg"></i>
+                            )}
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex space-x-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handlePlayTrack(track, index)}
-                          className="rounded-full h-9 w-9 p-0 bg-gray-700/50 hover:bg-green-600 text-white group-hover:scale-110 transition-all"
-                          title={`Play "${track.name}" and continue with station queue`}
-                        >
-                          <i className="bi bi-play-fill text-lg"></i>
-                        </Button>
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
                   <div className="text-center py-10 bg-gray-800/50 rounded-lg border border-dashed border-gray-700">
                     <i className="bi bi-exclamation-circle text-3xl text-gray-500 mb-2"></i>

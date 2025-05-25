@@ -9,7 +9,7 @@ datasource db {
 }
 
 model MostStreamedSongs {
-  id               Int       @id @default(autoincrement())
+  id               Int      @id @default(autoincrement())
   name             String?
   artist           String?
   thumbnail        String?
@@ -18,9 +18,9 @@ model MostStreamedSongs {
   year             String?
   genre            String?
   language         String?
-  spotifyId        String?   @unique
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  spotifyId        String?  @unique
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@index([artist], map: "idx_most_streamed_songs_artist")
   @@index([genre], map: "idx_most_streamed_songs_genre")
@@ -31,7 +31,7 @@ model MostStreamedSongs {
 }
 
 model MostStreamedAlbums {
-  id               Int       @id @default(autoincrement())
+  id               Int      @id @default(autoincrement())
   albName          String?
   artist           String?
   thumbnail        String?
@@ -41,9 +41,9 @@ model MostStreamedAlbums {
   year             String?
   genre            String?
   language         String?
-  spotifyId        String?   @unique
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  spotifyId        String?  @unique
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@index([artist], map: "idx_most_streamed_albums_artist")
   @@index([genre], map: "idx_most_streamed_albums_genre")
@@ -54,44 +54,43 @@ model MostStreamedAlbums {
 }
 
 model Station {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  imageUrl    String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // Spotify playlist ID
-  playlistId  String?
-  
-  // System station fields
-  isSystem    Boolean  @default(false)
-  stationType String?  // 'all-time', 'kpop', 'us-uk', 'random'
-  
-  // Relations
-  ownerId     String?
-  owner       User?    @relation(fields: [ownerId], references: [id])
-  
-  // Connections
-  members     StationMember[]
-  tracks      StationTrack[]
-  
+  id               String          @id @default(uuid())
+  name             String
+  description      String?
+  imageUrl         String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  playlistId       String?
+  isSystem         Boolean         @default(false)
+  stationType      String?
+  isPlaying        Boolean         @default(false)
+  currentTrackId   String?
+  currentSpotifyId String?
+  playingStartedAt DateTime?
+  playingUserId    String?
+  lastActivityAt   DateTime?
+  ownerId          String?
+  owner            User?           @relation(fields: [ownerId], references: [id])
+  playingUser      User?           @relation("StationPlayingUser", fields: [playingUserId], references: [id])
+  members          StationMember[]
+  tracks           StationTrack[]
+
   @@index([ownerId])
   @@index([isSystem])
   @@index([stationType])
+  @@index([isPlaying])
+  @@index([currentTrackId])
+  @@index([playingUserId])
 }
 
 model StationMember {
   id        String   @id @default(uuid())
   joinedAt  DateTime @default(now())
-  
-  // Relations  
   stationId String
-  station   Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
-  
   userId    String
-  user      User    @relation(fields: [userId], references: [id])
-  
+  station   Station  @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+
   @@unique([stationId, userId])
   @@index([stationId])
   @@index([userId])
@@ -99,40 +98,31 @@ model StationMember {
 
 model StationTrack {
   id        String   @id @default(uuid())
-  trackId   String   // Spotify track ID
+  trackId   String
   addedAt   DateTime @default(now())
-  
-  // Track metadata for quick access
   name      String?
   artist    String?
   imageUrl  String?
-  
-  // Relations
   stationId String
-  station   Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
-  
   addedById String
-  addedBy   User    @relation(fields: [addedById], references: [id])
-  
+  addedBy   User     @relation(fields: [addedById], references: [id])
+  station   Station  @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
   @@index([stationId])
   @@index([addedById])
 }
 
 model User {
-  id            String          @id @default(uuid())
-  name          String?
-  email         String?         @unique
-  image         String?
-  
-  // OAuth related fields
-  spotifyId     String?         @unique
-  spotifyToken  String?
-  
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  
-  // Relations
-  ownedStations Station[]
-  memberships   StationMember[]
-  addedTracks   StationTrack[]
+  id              String          @id @default(uuid())
+  name            String?
+  email           String?         @unique
+  image           String?
+  spotifyId       String?         @unique
+  spotifyToken    String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  ownedStations   Station[]
+  playingStations Station[]       @relation("StationPlayingUser")
+  memberships     StationMember[]
+  addedTracks     StationTrack[]
 }

@@ -114,6 +114,11 @@ export async function POST(
       );
     }
 
+    // Warn if using ChartMasters ID format instead of Spotify ID
+    if (trackId.startsWith('track-')) {
+      console.warn(`Warning: Adding track with ChartMasters ID format (${trackId}) instead of Spotify ID. Consider using Spotify IDs for better integration.`);
+    }
+
     // Add the track to the station
     console.log("Creating track with data:", {
       trackId,
