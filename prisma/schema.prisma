@@ -41,8 +41,16 @@ model MostStreamedAlbums {
   year             String?
   genre            String?
   language         String?
+  spotifyId        String?   @unique
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+
+  @@index([artist], map: "idx_most_streamed_albums_artist")
+  @@index([genre], map: "idx_most_streamed_albums_genre")
+  @@index([language], map: "idx_most_streamed_albums_language")
+  @@index([albName], map: "idx_most_streamed_albums_name")
+  @@index([year], map: "idx_most_streamed_albums_year")
+  @@index([spotifyId], map: "idx_most_streamed_albums_spotify_id")
 }
 
 model Station {

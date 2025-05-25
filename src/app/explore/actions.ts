@@ -91,6 +91,15 @@ export const getMostStreamedAlbums = async (params: AlbumParams) => {
     },
   });
 
+  // Optionally trigger background Spotify data updates for albums without spotifyId
+  // This runs asynchronously and doesn't block the response
+  const albumsWithoutSpotify = albums.filter(album => !album.spotifyId && album.albName && album.artist);
+  if (albumsWithoutSpotify.length > 0) {
+    // Limit background updates to avoid overloading Spotify API
+    const { updateAlbumsSpotifyDataBackground } = await import("@/lib/utils/spotify-album-updater");
+    updateAlbumsSpotifyDataBackground(albumsWithoutSpotify.slice(0, 5).map(album => album.id));
+  }
+
   return albums;
 };
 
