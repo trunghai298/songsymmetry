@@ -39,19 +39,16 @@ export function useStationPlayingState(stationId: string, station: Station | nul
       if (response.ok) {
         const data = await response.json();
         
-        if (data.isPlaying) {
-          setRedisPlayingState({
-            isPlaying: data.isPlaying,
-            currentTrackId: data.currentTrackId,
-            currentSpotifyId: data.currentSpotifyId,
-            trackName: data.trackName,
-            trackArtist: data.trackArtist,
-            playingUserId: data.playingUserId,
-            playingUserName: data.playingUserName,
-          });
-        } else {
-          setRedisPlayingState(null);
-        }
+        // Always set playing state, preserving track info even when paused
+        setRedisPlayingState({
+          isPlaying: data.isPlaying,
+          currentTrackId: data.currentTrackId,
+          currentSpotifyId: data.currentSpotifyId,
+          trackName: data.trackName,
+          trackArtist: data.trackArtist,
+          playingUserId: data.playingUserId,
+          playingUserName: data.playingUserName,
+        });
       }
     } catch (error) {
       console.error("Error fetching playing state:", error);

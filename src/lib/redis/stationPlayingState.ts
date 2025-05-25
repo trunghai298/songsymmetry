@@ -11,21 +11,14 @@ function getRedisClient(): Redis {
       throw new Error("REDIS_URL environment variable is not set");
     }
 
-    redis = new Redis(redisUrl, {
-      enableReadyCheck: false,
-      maxRetriesPerRequest: 3,
-      retryDelayOnFailover: 100,
-      enableOfflineQueue: false,
-      lazyConnect: true,
-      keepAlive: 30000,
-      family: 6, // Force IPv6 for Fly.io
-      connectTimeout: 10000,
-      commandTimeout: 5000,
-    });
+    redis = new Redis(redisUrl);
 
     redis.on("error", (err) => {
       // Only log significant errors, not connection resets
-      if (!err.message.includes('ECONNRESET') && !err.message.includes('ETIMEDOUT')) {
+      if (
+        !err.message.includes("ECONNRESET") &&
+        !err.message.includes("ETIMEDOUT")
+      ) {
         console.error("Redis connection error:", err);
       }
     });
@@ -53,21 +46,14 @@ function getSubscriberClient(): Redis {
       throw new Error("REDIS_URL environment variable is not set");
     }
 
-    subscriber = new Redis(redisUrl, {
-      enableReadyCheck: false,
-      maxRetriesPerRequest: 3,
-      retryDelayOnFailover: 100,
-      enableOfflineQueue: false,
-      lazyConnect: true,
-      keepAlive: 30000,
-      family: 6, // Force IPv6 for Fly.io
-      connectTimeout: 10000,
-      commandTimeout: 5000,
-    });
+    subscriber = new Redis(redisUrl);
 
     subscriber.on("error", (err) => {
       // Only log significant errors, not connection resets
-      if (!err.message.includes('ECONNRESET') && !err.message.includes('ETIMEDOUT')) {
+      if (
+        !err.message.includes("ECONNRESET") &&
+        !err.message.includes("ETIMEDOUT")
+      ) {
         console.error("Redis subscriber connection error:", err);
       }
     });
@@ -148,11 +134,16 @@ export class StationPlayingStateService {
           );
           throw error;
         }
-        
+
         // Only retry on connection errors
-        if (error.message?.includes('ECONNRESET') || error.message?.includes('ETIMEDOUT')) {
-          console.log(`Retrying Redis operation for station ${stationId} (${retries}/${maxRetries})`);
-          await new Promise(resolve => setTimeout(resolve, 100 * retries)); // Exponential backoff
+        if (
+          error.message?.includes("ECONNRESET") ||
+          error.message?.includes("ETIMEDOUT")
+        ) {
+          console.log(
+            `Retrying Redis operation for station ${stationId} (${retries}/${maxRetries})`
+          );
+          await new Promise((resolve) => setTimeout(resolve, 100 * retries)); // Exponential backoff
         } else {
           throw error; // Don't retry on other errors
         }
@@ -275,13 +266,13 @@ export class StationPlayingStateService {
       }
 
       // Build Redis keys for all stations
-      const keys = stationIds.map(id => `station:${id}:playing`);
-      
+      const keys = stationIds.map((id) => `station:${id}:playing`);
+
       // Get all values in one batch operation
       const values = await this.redis.mget(...keys);
-      
+
       const result = new Map<string, StationPlayingState>();
-      
+
       for (let i = 0; i < stationIds.length; i++) {
         const data = values[i];
         if (data) {
@@ -289,7 +280,10 @@ export class StationPlayingStateService {
             const state = JSON.parse(data) as StationPlayingState;
             result.set(stationIds[i], state);
           } catch (parseError) {
-            console.error(`Error parsing playing state for station ${stationIds[i]}:`, parseError);
+            console.error(
+              `Error parsing playing state for station ${stationIds[i]}:`,
+              parseError
+            );
           }
         }
       }

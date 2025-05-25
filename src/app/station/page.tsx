@@ -181,21 +181,23 @@ export default function StationPage() {
                               </p>
                             )}
                             <div className="flex flex-col gap-1 mt-2">
-                              {/* Now Playing */}
-                              {station.isPlaying && station.currentTrack ? (
-                                <div className="flex items-center gap-2 text-xs text-green-400 bg-green-500/10 rounded-md px-2 py-1">
-                                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                                  <span className="truncate">
-                                    {station.currentTrack.name} - {station.currentTrack.artist}
-                                  </span>
-                                </div>
-                              ) : station.currentTrack ? (
-                                <div className="flex items-center gap-2 text-xs text-gray-400">
-                                  <i className="bi bi-music-note text-green-500"></i>
-                                  <span className="truncate">
-                                    {station.currentTrack.name} - {station.currentTrack.artist}
-                                  </span>
-                                </div>
+                              {/* Now Playing / Last Played */}
+                              {station.currentTrack ? (
+                                station.isPlaying ? (
+                                  <div className="flex items-center gap-2 text-xs text-green-400 bg-green-500/10 rounded-md px-2 py-1">
+                                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                    <span className="truncate">
+                                      {station.currentTrack.name} - {station.currentTrack.artist}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-2 text-xs text-gray-400 bg-gray-500/10 rounded-md px-2 py-1">
+                                    <i className="bi bi-pause text-gray-500"></i>
+                                    <span className="truncate">
+                                      {station.currentTrack.name} - {station.currentTrack.artist}
+                                    </span>
+                                  </div>
+                                )
                               ) : null}
                               
                               {/* Stats */}

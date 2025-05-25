@@ -5,6 +5,7 @@ import authOptions from "../auth/[...nextauth]/authOptions";
 import { importPlaylistTracksToStation } from "@/lib/utils/playlist-utils";
 import { getAuthUser } from "@/lib/session";
 import { get } from "lodash";
+import { stationPlayingStateService } from "@/lib/redis/stationPlayingState";
 
 // GET: Fetch all public stations (including system stations)
 export async function GET(request: NextRequest) {
@@ -57,15 +58,41 @@ export async function GET(request: NextRequest) {
       ],
     });
 
+    // Get Redis playing states for all stations efficiently
+    const stationIds = stations.map(s => s.id);
+    const redisPlayingStates = await stationPlayingStateService.getMultipleStationPlayingStates(stationIds);
+
     // For each station, get the current playing track or latest track
     const stationsWithTracks = await Promise.all(
       stations.map(async (station) => {
         let currentTrack = null;
+        let isPlaying = station.isPlaying; // Default to database value
+        let currentTrackId = station.currentTrackId; // Default to database value
         
-        if (station.currentTrackId) {
-          // Get the currently playing track
+        // Check if we have Redis state for this station (real-time data)
+        const redisState = redisPlayingStates.get(station.id);
+        if (redisState) {
+          // Use Redis state as it's more up-to-date
+          isPlaying = redisState.isPlaying;
+          currentTrackId = redisState.currentTrackId;
+          
+          // If Redis has track info, prefer it over database lookup
+          if (redisState.trackName && redisState.trackArtist) {
+            currentTrack = {
+              id: redisState.currentTrackId || '',
+              trackId: redisState.currentSpotifyId || '',
+              name: redisState.trackName,
+              artist: redisState.trackArtist,
+              imageUrl: redisState.trackImageUrl,
+              addedAt: new Date(redisState.startedAt),
+            };
+          }
+        }
+        
+        // If we don't have track info yet, fetch from database
+        if (!currentTrack && currentTrackId) {
           currentTrack = await prisma.stationTrack.findUnique({
-            where: { id: station.currentTrackId },
+            where: { id: currentTrackId },
             select: {
               id: true,
               trackId: true,
@@ -96,6 +123,7 @@ export async function GET(request: NextRequest) {
 
         return {
           ...station,
+          isPlaying, // Use Redis state if available, otherwise database state
           currentTrack,
           tracks: currentTrack ? [currentTrack] : [], // For backward compatibility
         };
