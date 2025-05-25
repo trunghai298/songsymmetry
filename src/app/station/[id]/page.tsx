@@ -76,7 +76,7 @@ export default function StationDetailPage() {
   const router = useRouter();
   const { data: session } = useSession();
   const { toast } = useToast();
-  const { playPlaylist: setPlaylist, playTrack: setTrack } = usePlayer();
+  const { playPlaylist: setPlaylist, playTrack: setTrack, playQueueFromIndex } = usePlayer();
   const spotify = useSpotify();
 
   const [station, setStation] = useState<Station | null>(null);
@@ -503,22 +503,110 @@ export default function StationDetailPage() {
     }
   };
 
-  const handlePlayTrack = (track: any) => {
-    const trackData = {
-      id: track.trackId,
-      name: track.name,
-      artists: [{ name: track.artist }],
-    };
-    setTrack(trackData as Track);
+  const handlePlayTrack = (track: StationTrack, trackIndex?: number) => {
+    if (!session?.user) {
+      toast({
+        title: "Authentication required",
+        description: "You must be logged in to play tracks",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // If we have an index and other tracks, play the whole station queue from this track
+      if (typeof trackIndex === 'number' && station?.tracks && station.tracks.length > 1) {
+        // Convert all station tracks to Spotify Track objects
+        const spotifyTracks: Track[] = station.tracks
+          .filter(t => t.trackId)
+          .map(convertStationTrackToSpotifyTrack);
+
+        // Find the correct index in the filtered array
+        const playableTrackIndex = station.tracks
+          .slice(0, trackIndex + 1)
+          .filter(t => t.trackId).length - 1;
+
+        playQueueFromIndex(spotifyTracks, Math.max(0, playableTrackIndex));
+        
+        toast({
+          title: "Playing track",
+          description: `Playing "${track.name}" from station queue`,
+        });
+      } else {
+        // Just play this single track
+        const trackData = convertStationTrackToSpotifyTrack(track);
+        setTrack(trackData);
+
+        toast({
+          title: "Playing track",
+          description: `Playing "${track.name}"`,
+        });
+      }
+    } catch (error) {
+      console.error("Error playing track:", error);
+      toast({
+        title: "Error",
+        description: "Failed to play track",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handlePlayStation = () => {
-    if (!station) return;
+  const handlePlayStation = async () => {
+    if (!station || !station.tracks || station.tracks.length === 0) {
+      toast({
+        title: "No tracks to play",
+        description: "This station doesn't have any tracks yet",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    if (station.playlistId) {
-      setPlaylist({ id: station.playlistId } as any);
-    } else if (station.tracks && station.tracks.length > 0) {
-      handlePlayTrack(station.tracks[0].trackId);
+    if (!session?.user) {
+      toast({
+        title: "Authentication required",
+        description: "You must be logged in to play station tracks",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // If station has a Spotify playlist, play it directly
+      if (station.playlistId) {
+        setPlaylist({ id: station.playlistId } as any);
+        return;
+      }
+
+      // Convert station tracks to Spotify Track objects
+      const spotifyTracks: Track[] = station.tracks
+        .filter(track => track.trackId)
+        .map(convertStationTrackToSpotifyTrack);
+
+      if (spotifyTracks.length === 0) {
+        toast({
+          title: "No playable tracks",
+          description: "Unable to find Spotify tracks for this station",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Play the queue starting from the first track
+      playQueueFromIndex(spotifyTracks, 0);
+
+      toast({
+        title: "Playing station",
+        description: `Started playing ${spotifyTracks.length} tracks from ${station.name}`,
+      });
+
+    } catch (error) {
+      console.error("Error playing station:", error);
+      toast({
+        title: "Error",
+        description: "Failed to play station tracks",
+        variant: "destructive",
+      });
     }
   };
 
@@ -624,6 +712,55 @@ export default function StationDetailPage() {
       month: "short",
       day: "numeric",
     });
+  };
+
+  // Utility function to convert station track to Spotify Track object
+  const convertStationTrackToSpotifyTrack = (stationTrack: StationTrack): Track => {
+    return {
+      id: stationTrack.trackId,
+      name: stationTrack.name || "Unknown Track",
+      artists: stationTrack.artist 
+        ? [{ id: "", name: stationTrack.artist, href: "", external_urls: { spotify: "" }, type: "artist", uri: "" }]
+        : [{ id: "", name: "Unknown Artist", href: "", external_urls: { spotify: "" }, type: "artist", uri: "" }],
+      album: {
+        id: "",
+        name: "Unknown Album",
+        href: "",
+        images: stationTrack.imageUrl ? [{ url: stationTrack.imageUrl, height: 640, width: 640 }] : [],
+        release_date: "",
+        release_date_precision: "day",
+        total_tracks: 0,
+        type: "album",
+        uri: "",
+        external_urls: { spotify: "" },
+        album_type: "album",
+        artists: [],
+        available_markets: [],
+        album_group: "",
+        copyrights: [],
+        external_ids: { upc: "", ean: "", isrc: "" },
+        genres: [],
+        label: "",
+        restrictions: undefined,
+        popularity: 0
+      },
+      duration_ms: 0,
+      explicit: false,
+      external_ids: { isrc: "", upc: "", ean: "" },
+      external_urls: { spotify: `https://open.spotify.com/track/${stationTrack.trackId}` },
+      href: "",
+      is_local: false,
+      popularity: 0,
+      preview_url: null,
+      track_number: 1,
+      type: "track",
+      uri: `spotify:track:${stationTrack.trackId}`,
+      is_playable: true,
+      disc_number: 1,
+      available_markets: [],
+      episode: false,
+      track: true
+    };
   };
 
   const isUserMember = () => {
@@ -1016,7 +1153,7 @@ export default function StationDetailPage() {
             ) : (
               <div className="space-y-2">
                 {station.tracks && station.tracks.length > 0 ? (
-                  station.tracks.map((track) => (
+                  station.tracks.map((track, index) => (
                     <div
                       key={track.id}
                       className="flex items-center justify-between p-3 bg-gray-800/70 rounded-lg hover:bg-gray-700/90 transition-all duration-200 group border border-transparent hover:border-gray-700 hover:shadow-md"
@@ -1061,8 +1198,9 @@ export default function StationDetailPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handlePlayTrack(track)}
+                          onClick={() => handlePlayTrack(track, index)}
                           className="rounded-full h-9 w-9 p-0 bg-gray-700/50 hover:bg-green-600 text-white group-hover:scale-110 transition-all"
+                          title={`Play "${track.name}" and continue with station queue`}
                         >
                           <i className="bi bi-play-fill text-lg"></i>
                         </Button>

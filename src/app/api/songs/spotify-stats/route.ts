@@ -50,6 +50,12 @@ export async function GET(request: NextRequest) {
       take: 10
     });
 
+    // Convert BigInt values to strings for JSON serialization
+    const serializedSampleSongs = sampleSongsWithoutSpotify.map(song => ({
+      ...song,
+      streamCount: song.streamCount?.toString()
+    }));
+
     // Get recently updated songs
     const recentlyUpdated = await prisma.mostStreamedSongs.findMany({
       where: {
@@ -77,7 +83,7 @@ export async function GET(request: NextRequest) {
       songsWithoutSpotify,
       songsWithoutNameOrArtist,
       completionPercentage: totalSongs > 0 ? ((songsWithSpotify / totalSongs) * 100).toFixed(2) : "0",
-      sampleSongsWithoutSpotify,
+      sampleSongsWithoutSpotify: serializedSampleSongs,
       recentlyUpdated
     };
 
