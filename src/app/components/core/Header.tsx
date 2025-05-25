@@ -82,6 +82,16 @@ export const Header = () => {
             {isAuthenticated && (
               <>
                 <a
+                  className={`text-lg font-medium hover:text-spotify-green hover:underline cursor-pointer flex items-center gap-1 ${currentPath === "/daily-song-game" || currentPath.startsWith("/daily-song-game") ? "text-spotify-green underline" : ""}`}
+                  onClick={() => {
+                    router.push("/daily-song-game");
+                    setCurrentPath("/daily-song-game");
+                  }}
+                >
+                  <i className="bi bi-puzzle text-lg"></i>
+                  Daily Game
+                </a>
+                <a
                   className={`text-lg font-medium hover:text-spotify-green hover:underline cursor-pointer ${currentPath === "/wrapped" ? "text-spotify-green underline" : ""}`}
                   onClick={() => {
                     router.push("/wrapped");

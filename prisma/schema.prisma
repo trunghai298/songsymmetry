@@ -125,4 +125,52 @@ model User {
   playingStations Station[]       @relation("StationPlayingUser")
   memberships     StationMember[]
   addedTracks     StationTrack[]
+  gameAttempts    DailySongGameAttempt[]
+}
+
+// Daily Song Guessing Game Models
+model DailySongGame {
+  id           String                 @id @default(uuid())
+  date         DateTime               @unique // One game per day
+  songId       String                 // Spotify track ID
+  songName     String
+  artistName   String
+  albumName    String?
+  genre        String?
+  releaseYear  Int?
+  popularity   Int?                   // Spotify popularity score
+  durationMs   Int?
+  imageUrl     String?
+  isExplicit   Boolean?               // Explicit content flag
+  createdAt    DateTime               @default(now())
+  attempts     DailySongGameAttempt[]
+
+  @@index([date])
+}
+
+model DailySongGameAttempt {
+  id           String        @id @default(uuid())
+  gameId       String
+  userId       String
+  guessedSongId String       // Spotify track ID of the guess
+  guessedSongName String
+  guessedArtistName String
+  guessedAlbumName String?
+  guessedGenre String?
+  guessedReleaseYear Int?
+  guessedPopularity Int?
+  guessedDurationMs Int?
+  guessedImageUrl String?
+  guessedIsExplicit Boolean?
+  attemptNumber Int          // 1, 2, 3, etc.
+  isCorrect    Boolean      @default(false)
+  createdAt    DateTime     @default(now())
+  
+  game         DailySongGame @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id])
+
+  @@unique([gameId, userId, attemptNumber])
+  @@index([gameId])
+  @@index([userId])
+  @@index([createdAt])
 }
