@@ -13,15 +13,33 @@ function getRedisClient(): Redis {
 
     redis = new Redis(redisUrl, {
       enableReadyCheck: false,
-      maxRetriesPerRequest: null,
+      maxRetriesPerRequest: 3,
+      retryDelayOnFailover: 100,
+      enableOfflineQueue: false,
+      lazyConnect: true,
+      keepAlive: 30000,
+      family: 6, // Force IPv6 for Fly.io
+      connectTimeout: 10000,
+      commandTimeout: 5000,
     });
 
     redis.on("error", (err) => {
-      console.error("Redis connection error:", err);
+      // Only log significant errors, not connection resets
+      if (!err.message.includes('ECONNRESET') && !err.message.includes('ETIMEDOUT')) {
+        console.error("Redis connection error:", err);
+      }
     });
 
     redis.on("connect", () => {
       console.log("✅ Redis connected for station playing state");
+    });
+
+    redis.on("ready", () => {
+      console.log("🚀 Redis ready for station playing state");
+    });
+
+    redis.on("reconnecting", () => {
+      console.log("🔄 Redis reconnecting...");
     });
   }
 
@@ -37,15 +55,33 @@ function getSubscriberClient(): Redis {
 
     subscriber = new Redis(redisUrl, {
       enableReadyCheck: false,
-      maxRetriesPerRequest: null,
+      maxRetriesPerRequest: 3,
+      retryDelayOnFailover: 100,
+      enableOfflineQueue: false,
+      lazyConnect: true,
+      keepAlive: 30000,
+      family: 6, // Force IPv6 for Fly.io
+      connectTimeout: 10000,
+      commandTimeout: 5000,
     });
 
     subscriber.on("error", (err) => {
-      console.error("Redis subscriber connection error:", err);
+      // Only log significant errors, not connection resets
+      if (!err.message.includes('ECONNRESET') && !err.message.includes('ETIMEDOUT')) {
+        console.error("Redis subscriber connection error:", err);
+      }
     });
 
     subscriber.on("connect", () => {
       console.log("✅ Redis subscriber connected for station playing state");
+    });
+
+    subscriber.on("ready", () => {
+      console.log("🚀 Redis subscriber ready for station playing state");
+    });
+
+    subscriber.on("reconnecting", () => {
+      console.log("🔄 Redis subscriber reconnecting...");
     });
   }
 
@@ -73,37 +109,54 @@ export class StationPlayingStateService {
   }
 
   /**
-   * Update station playing state in Redis
+   * Update station playing state in Redis with retry logic
    */
   async updateStationPlayingState(
     stationId: string,
     state: StationPlayingState
   ): Promise<void> {
-    try {
-      const key = `station:${stationId}:playing`;
-      const data = {
-        ...state,
-        lastUpdated: Date.now(),
-      };
+    const maxRetries = 3;
+    let retries = 0;
 
-      // Store in Redis with 24-hour expiration
-      await this.redis.setex(key, 24 * 60 * 60, JSON.stringify(data));
+    while (retries < maxRetries) {
+      try {
+        const key = `station:${stationId}:playing`;
+        const data = {
+          ...state,
+          lastUpdated: Date.now(),
+        };
 
-      // Publish to pub/sub channel for real-time updates
-      const channel = `station:${stationId}:playing:changed`;
-      await this.redis.publish(channel, JSON.stringify(data));
+        // Store in Redis with 24-hour expiration
+        await this.redis.setex(key, 24 * 60 * 60, JSON.stringify(data));
 
-      console.log(`✅ Updated playing state for station ${stationId}:`, {
-        isPlaying: state.isPlaying,
-        track: state.trackName,
-        user: state.playingUserName,
-      });
-    } catch (error) {
-      console.error(
-        `Error updating station ${stationId} playing state:`,
-        error
-      );
-      throw error;
+        // Publish to pub/sub channel for real-time updates
+        const channel = `station:${stationId}:playing:changed`;
+        await this.redis.publish(channel, JSON.stringify(data));
+
+        console.log(`✅ Updated playing state for station ${stationId}:`, {
+          isPlaying: state.isPlaying,
+          track: state.trackName,
+          user: state.playingUserName,
+        });
+        return; // Success, exit retry loop
+      } catch (error: any) {
+        retries++;
+        if (retries >= maxRetries) {
+          console.error(
+            `Failed to update station ${stationId} playing state after ${maxRetries} retries:`,
+            error
+          );
+          throw error;
+        }
+        
+        // Only retry on connection errors
+        if (error.message?.includes('ECONNRESET') || error.message?.includes('ETIMEDOUT')) {
+          console.log(`Retrying Redis operation for station ${stationId} (${retries}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, 100 * retries)); // Exponential backoff
+        } else {
+          throw error; // Don't retry on other errors
+        }
+      }
     }
   }
 
@@ -207,6 +260,44 @@ export class StationPlayingStateService {
     } catch (error) {
       console.error("Error getting active stations:", error);
       return [];
+    }
+  }
+
+  /**
+   * Get playing states for multiple stations efficiently
+   */
+  async getMultipleStationPlayingStates(
+    stationIds: string[]
+  ): Promise<Map<string, StationPlayingState>> {
+    try {
+      if (stationIds.length === 0) {
+        return new Map();
+      }
+
+      // Build Redis keys for all stations
+      const keys = stationIds.map(id => `station:${id}:playing`);
+      
+      // Get all values in one batch operation
+      const values = await this.redis.mget(...keys);
+      
+      const result = new Map<string, StationPlayingState>();
+      
+      for (let i = 0; i < stationIds.length; i++) {
+        const data = values[i];
+        if (data) {
+          try {
+            const state = JSON.parse(data) as StationPlayingState;
+            result.set(stationIds[i], state);
+          } catch (parseError) {
+            console.error(`Error parsing playing state for station ${stationIds[i]}:`, parseError);
+          }
+        }
+      }
+
+      return result;
+    } catch (error) {
+      console.error("Error getting multiple station playing states:", error);
+      return new Map();
     }
   }
 
