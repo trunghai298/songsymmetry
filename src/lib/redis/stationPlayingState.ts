@@ -23,16 +23,9 @@ function getRedisClient(): Redis {
       }
     });
 
-    redis.on("connect", () => {
-      console.log("✅ Redis connected for station playing state");
-    });
-
+    // Simplified logging - only log significant events
     redis.on("ready", () => {
       console.log("🚀 Redis ready for station playing state");
-    });
-
-    redis.on("reconnecting", () => {
-      console.log("🔄 Redis reconnecting...");
     });
   }
 
@@ -58,16 +51,9 @@ function getSubscriberClient(): Redis {
       }
     });
 
-    subscriber.on("connect", () => {
-      console.log("✅ Redis subscriber connected for station playing state");
-    });
-
+    // Simplified logging - only log significant events
     subscriber.on("ready", () => {
       console.log("🚀 Redis subscriber ready for station playing state");
-    });
-
-    subscriber.on("reconnecting", () => {
-      console.log("🔄 Redis subscriber reconnecting...");
     });
   }
 
