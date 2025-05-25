@@ -46,10 +46,33 @@ To get your own Spotify credentials:
    SPOTIFY_CLIENT_ID=your_actual_client_id
    SPOTIFY_CLIENT_SECRET=your_actual_client_secret
    DATABASE_URL=postgresql://songsymmetry_user:songsymmetry_local_pass@localhost:5432/songsymmetry_local
+   REDIS_URL=redis://127.0.0.1:6379
    ```
 
 3. **Configure Redirect URIs:**
    - Add `http://localhost:3000/api/auth/callback/spotify` to your Spotify app settings
+
+## 🔴 Setting Up Local Redis
+
+For local development, we use a local Redis instance:
+
+1. **Install Redis (if not already installed):**
+   ```bash
+   brew install redis
+   ```
+
+2. **Start Redis Service:**
+   ```bash
+   brew services start redis
+   ```
+
+3. **Test Redis Connection:**
+   ```bash
+   redis-cli ping  # Should return "PONG"
+   npm run redis:test:api  # Test via application
+   ```
+
+**Note:** Local Redis runs without authentication by default, which is perfect for development.
 
 ## 🔄 Switching Between Databases
 

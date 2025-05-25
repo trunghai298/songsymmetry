@@ -2,6 +2,8 @@ import { Server as NetServer } from 'http';
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { NextApiRequest } from 'next';
 import { NextApiResponse } from 'next';
+import { stationPlayingStateService } from '@/lib/redis/stationPlayingState';
+import Redis from 'ioredis';
 
 export type NextApiResponseWithSocket = NextApiResponse & {
   socket: {
@@ -13,6 +15,7 @@ export type NextApiResponseWithSocket = NextApiResponse & {
 
 // Global variable to hold the socket.io server instance
 let cachedIO: SocketIOServer | null = null;
+let redisSubscriber: Redis | null = null;
 
 export const initSocketServer = (req: NextApiRequest, res: NextApiResponseWithSocket) => {
   if (!cachedIO && res.socket?.server) {
@@ -42,10 +45,23 @@ export const initSocketServer = (req: NextApiRequest, res: NextApiResponseWithSo
       console.log(`Socket connected: ${socket.id}`);
       
       // Listen for a user joining a station
-      socket.on('join-station', (stationId: string, userId: string) => {
+      socket.on('join-station', async (stationId: string, userId: string) => {
         console.log(`User ${userId} joined station ${stationId}`);
         // Add the socket to a room for this station
         socket.join(`station:${stationId}`);
+        
+        // Send current playing state to the new user
+        try {
+          const currentState = await stationPlayingStateService.getStationPlayingState(stationId);
+          if (currentState && currentState.isPlaying) {
+            socket.emit('station-playing-state', {
+              stationId,
+              ...currentState,
+            });
+          }
+        } catch (error) {
+          console.error('Error getting current playing state for new user:', error);
+        }
         
         // Notify others that a new user joined
         socket.to(`station:${stationId}`).emit('user-joined', { 
@@ -95,6 +111,39 @@ export const initSocketServer = (req: NextApiRequest, res: NextApiResponseWithSo
         console.log(`Socket disconnected: ${socket.id}`);
       });
     });
+    
+    // Set up Redis subscriber for station playing state changes
+    if (!redisSubscriber && process.env.REDIS_URL) {
+      redisSubscriber = new Redis(process.env.REDIS_URL);
+      
+      // Subscribe to all station playing state changes
+      redisSubscriber.psubscribe('station:*:playing:changed');
+      
+      redisSubscriber.on('pmessage', (pattern, channel, message) => {
+        try {
+          const stationId = channel.match(/station:([^:]+):playing:changed/)?.[1];
+          if (stationId) {
+            const playingState = JSON.parse(message);
+            
+            // Broadcast to all users in this station room
+            io.to(`station:${stationId}`).emit('station-playing-state', {
+              stationId,
+              ...playingState,
+            });
+            
+            console.log(`📡 Broadcasted playing state change for station ${stationId} to all connected users`);
+          }
+        } catch (error) {
+          console.error('Error processing Redis pub/sub message:', error);
+        }
+      });
+      
+      redisSubscriber.on('error', (error) => {
+        console.error('Redis subscriber error:', error);
+      });
+      
+      console.log('✅ Redis subscriber set up for real-time station updates');
+    }
   }
   
   // Return the cached instance if it exists, otherwise from response

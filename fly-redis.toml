@@ -1,0 +1,24 @@
+app = "songsymmetry-redis"
+primary_region = "sin"
+
+[build]
+  image = "redis/redis-stack-server:latest"
+
+[env]
+  REDIS_ARGS = "--requirepass ${REDIS_PASSWORD}"
+
+[[mounts]]
+  source = "redis_data"
+  destination = "/data"
+
+[[services]]
+  internal_port = 6379
+  protocol = "tcp"
+
+  [[services.ports]]
+    port = 10000
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1

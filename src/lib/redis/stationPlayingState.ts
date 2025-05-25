@@ -1,0 +1,228 @@
+import Redis from "ioredis";
+
+// Redis client for station playing state
+let redis: Redis | null = null;
+let subscriber: Redis | null = null;
+
+function getRedisClient(): Redis {
+  if (!redis) {
+    const redisUrl = process.env.REDIS_URL;
+    if (!redisUrl) {
+      throw new Error("REDIS_URL environment variable is not set");
+    }
+
+    redis = new Redis(redisUrl, {
+      enableReadyCheck: false,
+      maxRetriesPerRequest: null,
+    });
+
+    redis.on("error", (err) => {
+      console.error("Redis connection error:", err);
+    });
+
+    redis.on("connect", () => {
+      console.log("✅ Redis connected for station playing state");
+    });
+  }
+
+  return redis;
+}
+
+function getSubscriberClient(): Redis {
+  if (!subscriber) {
+    const redisUrl = process.env.REDIS_URL;
+    if (!redisUrl) {
+      throw new Error("REDIS_URL environment variable is not set");
+    }
+
+    subscriber = new Redis(redisUrl, {
+      enableReadyCheck: false,
+      maxRetriesPerRequest: null,
+    });
+
+    subscriber.on("error", (err) => {
+      console.error("Redis subscriber connection error:", err);
+    });
+
+    subscriber.on("connect", () => {
+      console.log("✅ Redis subscriber connected for station playing state");
+    });
+  }
+
+  return subscriber;
+}
+
+export interface StationPlayingState {
+  isPlaying: boolean;
+  currentTrackId: string | null;
+  currentSpotifyId: string | null;
+  trackName: string | null;
+  trackArtist: string | null;
+  trackImageUrl: string | null;
+  playingUserId: string;
+  playingUserName: string | null;
+  startedAt: number; // timestamp
+  lastUpdated: number; // timestamp
+}
+
+export class StationPlayingStateService {
+  private redis: Redis;
+
+  constructor() {
+    this.redis = getRedisClient();
+  }
+
+  /**
+   * Update station playing state in Redis
+   */
+  async updateStationPlayingState(
+    stationId: string,
+    state: StationPlayingState
+  ): Promise<void> {
+    try {
+      const key = `station:${stationId}:playing`;
+      const data = {
+        ...state,
+        lastUpdated: Date.now(),
+      };
+
+      // Store in Redis with 24-hour expiration
+      await this.redis.setex(key, 24 * 60 * 60, JSON.stringify(data));
+
+      // Publish to pub/sub channel for real-time updates
+      const channel = `station:${stationId}:playing:changed`;
+      await this.redis.publish(channel, JSON.stringify(data));
+
+      console.log(`✅ Updated playing state for station ${stationId}:`, {
+        isPlaying: state.isPlaying,
+        track: state.trackName,
+        user: state.playingUserName,
+      });
+    } catch (error) {
+      console.error(
+        `Error updating station ${stationId} playing state:`,
+        error
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Get current station playing state from Redis
+   */
+  async getStationPlayingState(
+    stationId: string
+  ): Promise<StationPlayingState | null> {
+    try {
+      const key = `station:${stationId}:playing`;
+      const data = await this.redis.get(key);
+
+      if (!data) {
+        return null;
+      }
+
+      return JSON.parse(data) as StationPlayingState;
+    } catch (error) {
+      console.error(`Error getting station ${stationId} playing state:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Clear station playing state (when stopped)
+   */
+  async clearStationPlayingState(
+    stationId: string,
+    userId: string,
+    userName: string | null
+  ): Promise<void> {
+    try {
+      const state: StationPlayingState = {
+        isPlaying: false,
+        currentTrackId: null,
+        currentSpotifyId: null,
+        trackName: null,
+        trackArtist: null,
+        trackImageUrl: null,
+        playingUserId: userId,
+        playingUserName: userName,
+        startedAt: Date.now(),
+        lastUpdated: Date.now(),
+      };
+
+      await this.updateStationPlayingState(stationId, state);
+    } catch (error) {
+      console.error(
+        `Error clearing station ${stationId} playing state:`,
+        error
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Subscribe to station playing state changes
+   */
+  async subscribeToStationChanges(
+    stationId: string,
+    callback: (state: StationPlayingState) => void
+  ): Promise<Redis> {
+    const subscriberClient = getSubscriberClient();
+    const channel = `station:${stationId}:playing:changed`;
+
+    await subscriberClient.subscribe(channel);
+
+    subscriberClient.on("message", (receivedChannel, message) => {
+      if (receivedChannel === channel) {
+        try {
+          const state = JSON.parse(message) as StationPlayingState;
+          callback(state);
+        } catch (error) {
+          console.error("Error parsing station playing state message:", error);
+        }
+      }
+    });
+
+    console.log(`📡 Subscribed to station ${stationId} playing state changes`);
+    return subscriberClient;
+  }
+
+  /**
+   * Get all active stations (those with recent playing activity)
+   */
+  async getActiveStations(): Promise<string[]> {
+    try {
+      const pattern = "station:*:playing";
+      const keys = await this.redis.keys(pattern);
+
+      // Extract station IDs from keys
+      const stationIds = keys
+        .map((key) => {
+          const match = key.match(/^station:([^:]+):playing$/);
+          return match ? match[1] : null;
+        })
+        .filter(Boolean) as string[];
+
+      return stationIds;
+    } catch (error) {
+      console.error("Error getting active stations:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Health check for Redis connection
+   */
+  async healthCheck(): Promise<boolean> {
+    try {
+      await this.redis.ping();
+      return true;
+    } catch (error) {
+      console.error("Redis health check failed:", error);
+      return false;
+    }
+  }
+}
+
+// Export singleton instance
+export const stationPlayingStateService = new StationPlayingStateService();
