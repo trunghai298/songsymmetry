@@ -72,12 +72,12 @@ export default function DailySongGameStatsPage() {
       <Container>
         <div className="text-center py-16">
           <h1 className="text-4xl font-bold text-white mb-4">Game Stats</h1>
-          <p className="text-gray-400 mb-8">You haven't played any games yet!</p>
+          <p className="text-gray-400 mb-8">You haven&apos;t played any games yet!</p>
           <Button 
             onClick={() => window.location.href = '/daily-song-game'}
             className="bg-purple-600 hover:bg-purple-700"
           >
-            Play Today's Game
+            Play Today&apos;s Game
           </Button>
         </div>
       </Container>
@@ -182,7 +182,7 @@ export default function DailySongGameStatsPage() {
             onClick={() => window.location.href = '/daily-song-game'}
             className="bg-purple-600 hover:bg-purple-700"
           >
-            Play Today's Game
+            Play Today&apos;s Game
           </Button>
           <Button 
             variant="outline"
