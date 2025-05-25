@@ -16,7 +16,20 @@ export async function GET(request: NextRequest) {
 
     const stations = await prisma.station.findMany({
       where: whereClause,
-      include: {
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        imageUrl: true,
+        playlistId: true,
+        isSystem: true,
+        stationType: true,
+        isPlaying: true,
+        currentTrackId: true,
+        currentSpotifyId: true,
+        playingStartedAt: true,
+        lastActivityAt: true,
+        createdAt: true,
         owner: {
           select: {
             id: true,
@@ -30,12 +43,12 @@ export async function GET(request: NextRequest) {
             tracks: true,
           },
         },
-        // Include the most recently added track for "now playing" info
-        tracks: {
-          orderBy: {
-            addedAt: "desc",
+        playingUser: {
+          select: {
+            id: true,
+            name: true,
+            image: true,
           },
-          take: 1,
         },
       },
       orderBy: [
@@ -44,7 +57,52 @@ export async function GET(request: NextRequest) {
       ],
     });
 
-    return NextResponse.json(stations);
+    // For each station, get the current playing track or latest track
+    const stationsWithTracks = await Promise.all(
+      stations.map(async (station) => {
+        let currentTrack = null;
+        
+        if (station.currentTrackId) {
+          // Get the currently playing track
+          currentTrack = await prisma.stationTrack.findUnique({
+            where: { id: station.currentTrackId },
+            select: {
+              id: true,
+              trackId: true,
+              name: true,
+              artist: true,
+              imageUrl: true,
+              addedAt: true,
+            }
+          });
+        }
+        
+        if (!currentTrack) {
+          // Get the most recently added track as fallback
+          const recentTrack = await prisma.stationTrack.findFirst({
+            where: { stationId: station.id },
+            orderBy: { addedAt: "desc" },
+            select: {
+              id: true,
+              trackId: true,
+              name: true,
+              artist: true,
+              imageUrl: true,
+              addedAt: true,
+            }
+          });
+          currentTrack = recentTrack;
+        }
+
+        return {
+          ...station,
+          currentTrack,
+          tracks: currentTrack ? [currentTrack] : [], // For backward compatibility
+        };
+      })
+    );
+
+    return NextResponse.json(stationsWithTracks);
   } catch (error) {
     console.error("Error fetching stations:", error);
     return NextResponse.json(

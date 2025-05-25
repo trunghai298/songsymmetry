@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
-import { Sparkles, Crown, Globe, Shuffle } from "lucide-react";
+import { Sparkles, Crown, Globe, Shuffle, Users, Music, Play, Pause } from "lucide-react";
 
 interface Station {
   id: string;
@@ -18,7 +18,17 @@ interface Station {
   playlistId: string | null;
   isSystem?: boolean;
   stationType?: string;
+  isPlaying?: boolean;
+  currentTrackId?: string | null;
+  currentSpotifyId?: string | null;
+  playingStartedAt?: string | null;
+  lastActivityAt?: string | null;
   owner: {
+    id: string;
+    name: string | null;
+    image: string | null;
+  } | null;
+  playingUser?: {
     id: string;
     name: string | null;
     image: string | null;
@@ -27,6 +37,14 @@ interface Station {
     members: number;
     tracks: number;
   };
+  currentTrack?: {
+    id: string;
+    trackId: string;
+    name: string;
+    artist: string;
+    imageUrl: string | null;
+    addedAt: string;
+  } | null;
   tracks: any[];
 }
 
@@ -162,9 +180,35 @@ export default function StationPage() {
                                 {station.description}
                               </p>
                             )}
-                            <div className="flex items-center text-xs text-gray-400 gap-1 mt-1">
-                              <i className="bi bi-music-note-list text-green-500"></i>
-                              <span>{station._count.tracks} tracks</span>
+                            <div className="flex flex-col gap-1 mt-2">
+                              {/* Now Playing */}
+                              {station.isPlaying && station.currentTrack ? (
+                                <div className="flex items-center gap-2 text-xs text-green-400 bg-green-500/10 rounded-md px-2 py-1">
+                                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                  <span className="truncate">
+                                    {station.currentTrack.name} - {station.currentTrack.artist}
+                                  </span>
+                                </div>
+                              ) : station.currentTrack ? (
+                                <div className="flex items-center gap-2 text-xs text-gray-400">
+                                  <i className="bi bi-music-note text-green-500"></i>
+                                  <span className="truncate">
+                                    {station.currentTrack.name} - {station.currentTrack.artist}
+                                  </span>
+                                </div>
+                              ) : null}
+                              
+                              {/* Stats */}
+                              <div className="flex items-center text-xs text-gray-400 gap-3">
+                                <span className="flex items-center gap-1">
+                                  <i className="bi bi-people-fill text-green-500"></i>
+                                  {station._count.members}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <i className="bi bi-music-note-list text-green-500"></i>
+                                  {station._count.tracks}
+                                </span>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -186,10 +230,45 @@ export default function StationPage() {
                         <h3 className="text-xl font-bold text-white group-hover:text-purple-400 transition-colors">
                           {station.name}
                         </h3>
-                        <p className="text-gray-300 text-sm mt-2">{station.description}</p>
-                        <div className="flex items-center text-xs text-gray-400 gap-4 mt-4">
-                          <span><i className="bi bi-people-fill mr-1"></i>{station._count.members}</span>
-                          <span><i className="bi bi-music-note-list mr-1"></i>{station._count.tracks}</span>
+                        {station.description && (
+                          <p className="text-gray-300 text-sm mt-2 line-clamp-2">{station.description}</p>
+                        )}
+                        
+                        <div className="flex flex-col gap-2 mt-3">
+                          {/* Now Playing */}
+                          {station.isPlaying && station.currentTrack ? (
+                            <div className="flex items-center gap-2 text-xs text-purple-400 bg-purple-500/10 rounded-md px-2 py-1">
+                              <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
+                              <span className="truncate">
+                                {station.currentTrack.name} - {station.currentTrack.artist}
+                              </span>
+                            </div>
+                          ) : station.currentTrack ? (
+                            <div className="flex items-center gap-2 text-xs text-gray-400">
+                              <i className="bi bi-music-note"></i>
+                              <span className="truncate">
+                                Latest: {station.currentTrack.name} - {station.currentTrack.artist}
+                              </span>
+                            </div>
+                          ) : null}
+                          
+                          {/* Stats */}
+                          <div className="flex items-center text-xs text-gray-400 gap-4">
+                            <span className="flex items-center gap-1">
+                              <i className="bi bi-people-fill"></i>
+                              {station._count.members}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <i className="bi bi-music-note-list"></i>
+                              {station._count.tracks}
+                            </span>
+                            {station.owner && (
+                              <span className="flex items-center gap-1">
+                                <i className="bi bi-person-badge"></i>
+                                {station.owner.name}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </Card>
                     </Link>
