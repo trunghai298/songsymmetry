@@ -76,7 +76,11 @@ export default function StationDetailPage() {
   const router = useRouter();
   const { data: session } = useSession();
   const { toast } = useToast();
-  const { playPlaylist: setPlaylist, playTrack: setTrack, playQueueFromIndex } = usePlayer();
+  const {
+    playPlaylist: setPlaylist,
+    playTrack: setTrack,
+    playQueueFromIndex,
+  } = usePlayer();
   const spotify = useSpotify();
 
   const [station, setStation] = useState<Station | null>(null);
@@ -95,52 +99,55 @@ export default function StationDetailPage() {
   const { isConnected, joinStation, leaveStation, addTrack, subscribe } =
     useSocket();
   console.log("[Page] Socket connection status:", isConnected);
-  
-  const fetchStationData = useCallback(async (showLoading = true) => {
-    console.log("Fetching station data for ID:", stationId);
-    if (showLoading) {
-      setIsLoading(true);
-    }
-    try {
-      const response = await fetch(`/api/stations/${stationId}`);
-      console.log("Station response status:", response.status);
 
-      if (!response.ok) {
-        if (response.status === 404) {
-          toast({
-            title: "Station not found",
-            description: "This station doesn't exist or has been deleted",
-            variant: "destructive",
-          });
-          router.push("/station");
-          return;
-        }
-        throw new Error("Failed to fetch station");
-      }
-
-      const data = await response.json();
-      console.log("Station data received:", data);
-      console.log("Tracks in station:", data.tracks ? data.tracks.length : 0);
-
-      // Make sure we have an array of tracks even if it's undefined in the response
-      if (!data.tracks) {
-        data.tracks = [];
-      }
-
-      setStation(data);
-    } catch (error) {
-      console.error("Error fetching station:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load station data",
-        variant: "destructive",
-      });
-    } finally {
+  const fetchStationData = useCallback(
+    async (showLoading = true) => {
+      console.log("Fetching station data for ID:", stationId);
       if (showLoading) {
-        setIsLoading(false);
+        setIsLoading(true);
       }
-    }
-  }, [stationId, toast, router]);
+      try {
+        const response = await fetch(`/api/stations/${stationId}`);
+        console.log("Station response status:", response.status);
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            toast({
+              title: "Station not found",
+              description: "This station doesn't exist or has been deleted",
+              variant: "destructive",
+            });
+            router.push("/station");
+            return;
+          }
+          throw new Error("Failed to fetch station");
+        }
+
+        const data = await response.json();
+        console.log("Station data received:", data);
+        console.log("Tracks in station:", data.tracks ? data.tracks.length : 0);
+
+        // Make sure we have an array of tracks even if it's undefined in the response
+        if (!data.tracks) {
+          data.tracks = [];
+        }
+
+        setStation(data);
+      } catch (error) {
+        console.error("Error fetching station:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load station data",
+          variant: "destructive",
+        });
+      } finally {
+        if (showLoading) {
+          setIsLoading(false);
+        }
+      }
+    },
+    [stationId, toast, router]
+  );
 
   // Fetch station data
   useEffect(() => {
@@ -503,7 +510,7 @@ export default function StationDetailPage() {
     }
   };
 
-  const handlePlayTrack = (track: StationTrack, trackIndex?: number) => {
+  const handlePlayTrack = async (track: StationTrack, trackIndex?: number) => {
     if (!session?.user) {
       toast({
         title: "Authentication required",
@@ -515,26 +522,58 @@ export default function StationDetailPage() {
 
     try {
       // If we have an index and other tracks, play the whole station queue from this track
-      if (typeof trackIndex === 'number' && station?.tracks && station.tracks.length > 1) {
+      if (
+        typeof trackIndex === "number" &&
+        station?.tracks &&
+        station.tracks.length > 1
+      ) {
+        toast({
+          title: "Loading tracks...",
+          description: "Searching for tracks on Spotify",
+        });
+
         // Convert all station tracks to Spotify Track objects
-        const spotifyTracks: Track[] = station.tracks
-          .filter(t => t.trackId)
+        const spotifyTrackPromises = station.tracks
+          .filter((t) => t.trackId)
           .map(convertStationTrackToSpotifyTrack);
 
-        // Find the correct index in the filtered array
-        const playableTrackIndex = station.tracks
-          .slice(0, trackIndex + 1)
-          .filter(t => t.trackId).length - 1;
+        const spotifyTrackResults = await Promise.all(spotifyTrackPromises);
+        const spotifyTracks: Track[] = spotifyTrackResults.filter((track): track is Track => track !== null);
 
-        playQueueFromIndex(spotifyTracks, Math.max(0, playableTrackIndex));
-        
+        if (spotifyTracks.length === 0) {
+          toast({
+            title: "No tracks found",
+            description: "Unable to find any tracks on Spotify",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Find the correct index in the filtered array  
+        const originalTrackIndex = Math.min(trackIndex, spotifyTracks.length - 1);
+        playQueueFromIndex(spotifyTracks, Math.max(0, originalTrackIndex));
+
         toast({
           title: "Playing track",
           description: `Playing "${track.name}" from station queue`,
         });
       } else {
         // Just play this single track
-        const trackData = convertStationTrackToSpotifyTrack(track);
+        toast({
+          title: "Loading track...",
+          description: "Searching for track on Spotify",
+        });
+
+        const trackData = await convertStationTrackToSpotifyTrack(track);
+        if (!trackData) {
+          toast({
+            title: "Track not found",
+            description: `Unable to find "${track.name}" on Spotify`,
+            variant: "destructive",
+          });
+          return;
+        }
+
         setTrack(trackData);
 
         toast({
@@ -578,10 +617,18 @@ export default function StationDetailPage() {
         return;
       }
 
+      toast({
+        title: "Loading station...",
+        description: "Searching for tracks on Spotify",
+      });
+
       // Convert station tracks to Spotify Track objects
-      const spotifyTracks: Track[] = station.tracks
-        .filter(track => track.trackId)
+      const spotifyTrackPromises = station.tracks
+        .filter((track) => track.trackId)
         .map(convertStationTrackToSpotifyTrack);
+
+      const spotifyTrackResults = await Promise.all(spotifyTrackPromises);
+      const spotifyTracks: Track[] = spotifyTrackResults.filter((track): track is Track => track !== null);
 
       if (spotifyTracks.length === 0) {
         toast({
@@ -591,7 +638,6 @@ export default function StationDetailPage() {
         });
         return;
       }
-
       // Play the queue starting from the first track
       playQueueFromIndex(spotifyTracks, 0);
 
@@ -599,7 +645,6 @@ export default function StationDetailPage() {
         title: "Playing station",
         description: `Started playing ${spotifyTracks.length} tracks from ${station.name}`,
       });
-
     } catch (error) {
       console.error("Error playing station:", error);
       toast({
@@ -714,53 +759,204 @@ export default function StationDetailPage() {
     });
   };
 
+  // Utility function to search for a track on Spotify
+  const searchSpotifyTrack = async (name: string, artist: string): Promise<Track | null> => {
+    try {
+      if (spotify?.sdk) {
+        const searchQuery = `track:"${name}" artist:"${artist}"`;
+        const results = await spotify.sdk.search(searchQuery, ["track"], undefined, 1);
+        return results.tracks.items[0] || null;
+      } else {
+        // Fallback to API endpoint
+        const response = await fetch(
+          `/api/spotify/search?query=${encodeURIComponent(`track:"${name}" artist:"${artist}"`)}&type=track&limit=1`
+        );
+        if (!response.ok) return null;
+        const data = await response.json();
+        return data.tracks.items[0] || null;
+      }
+    } catch (error) {
+      console.error("Error searching for track:", error);
+      return null;
+    }
+  };
+
   // Utility function to convert station track to Spotify Track object
-  const convertStationTrackToSpotifyTrack = (stationTrack: StationTrack): Track => {
-    return {
-      id: stationTrack.trackId,
-      name: stationTrack.name || "Unknown Track",
-      artists: stationTrack.artist 
-        ? [{ id: "", name: stationTrack.artist, href: "", external_urls: { spotify: "" }, type: "artist", uri: "" }]
-        : [{ id: "", name: "Unknown Artist", href: "", external_urls: { spotify: "" }, type: "artist", uri: "" }],
-      album: {
-        id: "",
-        name: "Unknown Album",
+  const convertStationTrackToSpotifyTrack = async (
+    stationTrack: StationTrack
+  ): Promise<Track | null> => {
+    // Check if this is a real Spotify track ID (not starting with "track-")
+    const isRealSpotifyId = !stationTrack.trackId.startsWith("track-");
+    
+    // For ChartMasters data, check if we can get the spotifyId from the database
+    if (!isRealSpotifyId && stationTrack.trackId.startsWith("track-")) {
+      const songId = stationTrack.trackId.replace("track-", "");
+      try {
+        // Try to get the spotifyId from the MostStreamedSongs table
+        const response = await fetch(`/api/songs/spotify-data/${songId}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.spotifyId) {
+            // We have a spotifyId, use it directly
+            return {
+              id: data.spotifyId,
+              name: data.name || "Unknown Track",
+              artists: data.artist
+                ? [
+                    {
+                      id: "",
+                      name: data.artist,
+                      href: "",
+                      external_urls: { spotify: "" },
+                      type: "artist",
+                      uri: "",
+                    },
+                  ]
+                : [
+                    {
+                      id: "",
+                      name: "Unknown Artist",
+                      href: "",
+                      external_urls: { spotify: "" },
+                      type: "artist",
+                      uri: "",
+                    },
+                  ],
+              album: {
+                id: "",
+                name: "Unknown Album",
+                href: "",
+                images: data.thumbnail
+                  ? [{ url: data.thumbnail, height: 640, width: 640 }]
+                  : [],
+                release_date: "",
+                release_date_precision: "day",
+                total_tracks: 0,
+                type: "album",
+                uri: "",
+                external_urls: { spotify: "" },
+                album_type: "album",
+                artists: [],
+                available_markets: [],
+                album_group: "",
+                copyrights: [],
+                external_ids: { upc: "", ean: "", isrc: "" },
+                genres: [],
+                label: "",
+                restrictions: undefined,
+                popularity: 0,
+              },
+              duration_ms: 0,
+              explicit: false,
+              external_ids: { isrc: "", upc: "", ean: "" },
+              external_urls: {
+                spotify: `https://open.spotify.com/track/${data.spotifyId}`,
+              },
+              href: "",
+              is_local: false,
+              popularity: 0,
+              preview_url: null,
+              track_number: 1,
+              type: "track",
+              uri: `spotify:track:${data.spotifyId}`,
+              is_playable: true,
+              disc_number: 1,
+              available_markets: [],
+              episode: false,
+              track: true,
+            };
+          } else {
+            // No spotifyId yet, search for it
+            const spotifyTrack = await searchSpotifyTrack(data.name, data.artist);
+            if (spotifyTrack) {
+              return spotifyTrack;
+            }
+          }
+        }
+      } catch (error) {
+        console.warn("Failed to get spotifyId from database:", error);
+      }
+    }
+    
+    if (isRealSpotifyId) {
+      // Use the existing Spotify track ID directly
+      return {
+        id: stationTrack.trackId,
+        name: stationTrack.name || "Unknown Track",
+        artists: stationTrack.artist
+          ? [
+              {
+                id: "",
+                name: stationTrack.artist,
+                href: "",
+                external_urls: { spotify: "" },
+                type: "artist",
+                uri: "",
+              },
+            ]
+          : [
+              {
+                id: "",
+                name: "Unknown Artist",
+                href: "",
+                external_urls: { spotify: "" },
+                type: "artist",
+                uri: "",
+              },
+            ],
+        album: {
+          id: "",
+          name: "Unknown Album",
+          href: "",
+          images: stationTrack.imageUrl
+            ? [{ url: stationTrack.imageUrl, height: 640, width: 640 }]
+            : [],
+          release_date: "",
+          release_date_precision: "day",
+          total_tracks: 0,
+          type: "album",
+          uri: "",
+          external_urls: { spotify: "" },
+          album_type: "album",
+          artists: [],
+          available_markets: [],
+          album_group: "",
+          copyrights: [],
+          external_ids: { upc: "", ean: "", isrc: "" },
+          genres: [],
+          label: "",
+          restrictions: undefined,
+          popularity: 0,
+        },
+        duration_ms: 0,
+        explicit: false,
+        external_ids: { isrc: "", upc: "", ean: "" },
+        external_urls: {
+          spotify: `https://open.spotify.com/track/${stationTrack.trackId}`,
+        },
         href: "",
-        images: stationTrack.imageUrl ? [{ url: stationTrack.imageUrl, height: 640, width: 640 }] : [],
-        release_date: "",
-        release_date_precision: "day",
-        total_tracks: 0,
-        type: "album",
-        uri: "",
-        external_urls: { spotify: "" },
-        album_type: "album",
-        artists: [],
+        is_local: false,
+        popularity: 0,
+        preview_url: null,
+        track_number: 1,
+        type: "track",
+        uri: `spotify:track:${stationTrack.trackId}`,
+        is_playable: true,
+        disc_number: 1,
         available_markets: [],
-        album_group: "",
-        copyrights: [],
-        external_ids: { upc: "", ean: "", isrc: "" },
-        genres: [],
-        label: "",
-        restrictions: undefined,
-        popularity: 0
-      },
-      duration_ms: 0,
-      explicit: false,
-      external_ids: { isrc: "", upc: "", ean: "" },
-      external_urls: { spotify: `https://open.spotify.com/track/${stationTrack.trackId}` },
-      href: "",
-      is_local: false,
-      popularity: 0,
-      preview_url: null,
-      track_number: 1,
-      type: "track",
-      uri: `spotify:track:${stationTrack.trackId}`,
-      is_playable: true,
-      disc_number: 1,
-      available_markets: [],
-      episode: false,
-      track: true
-    };
+        episode: false,
+        track: true,
+      };
+    } else {
+      // This is ChartMasters data - search for the track on Spotify
+      if (!stationTrack.name || !stationTrack.artist) {
+        console.warn("Missing track name or artist for ChartMasters track:", stationTrack);
+        return null;
+      }
+      
+      const spotifyTrack = await searchSpotifyTrack(stationTrack.name, stationTrack.artist);
+      return spotifyTrack;
+    }
   };
 
   const isUserMember = () => {
@@ -807,8 +1003,8 @@ export default function StationDetailPage() {
               Station not found
             </h2>
             <p className="text-gray-400">
-              This station may have been removed or you don&apos;t have permission to
-              view it.
+              This station may have been removed or you don&apos;t have
+              permission to view it.
             </p>
             <Button onClick={() => router.push("/station")} variant="outline">
               <i className="bi bi-arrow-left mr-2"></i>
