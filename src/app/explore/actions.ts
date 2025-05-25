@@ -51,6 +51,15 @@ export const getMostStreamedSongs = async (params: SongParams) => {
     },
   });
 
+  // Optionally trigger background Spotify data updates for songs without spotifyId
+  // This runs asynchronously and doesn't block the response
+  const songsWithoutSpotify = songs.filter(song => !song.spotifyId && song.name && song.artist);
+  if (songsWithoutSpotify.length > 0) {
+    // Limit background updates to avoid overloading Spotify API
+    const { updateSongsSpotifyDataBackground } = await import("@/lib/utils/spotify-song-updater");
+    updateSongsSpotifyDataBackground(songsWithoutSpotify.slice(0, 5).map(song => song.id));
+  }
+
   return songs;
 };
 

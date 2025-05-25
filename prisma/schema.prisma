@@ -18,6 +18,7 @@ model MostStreamedSongs {
   year             String?
   genre            String?
   language         String?
+  spotifyId        String?   @unique
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -26,6 +27,7 @@ model MostStreamedSongs {
   @@index([language], map: "idx_most_streamed_songs_language")
   @@index([name], map: "idx_most_streamed_songs_name")
   @@index([year], map: "idx_most_streamed_songs_year")
+  @@index([spotifyId], map: "idx_most_streamed_songs_spotify_id")
 }
 
 model MostStreamedAlbums {
