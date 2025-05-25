@@ -18,8 +18,8 @@ The local database has been successfully configured:
 
 ### `.env` (Current - Local DB)
 ```env
-SPOTIFY_CLIENT_ID=b105c7fc2f5045deaf2bda3393ab5110
-SPOTIFY_CLIENT_SECRET=01b56119bec34d019484f695c77b0f0a
+SPOTIFY_CLIENT_ID=your_spotify_client_id_here
+SPOTIFY_CLIENT_SECRET=your_spotify_client_secret_here
 DATABASE_URL=postgresql://songsymmetry_user:songsymmetry_local_pass@localhost:5432/songsymmetry_local
 ```
 
@@ -28,6 +28,28 @@ Contains the original remote database configuration for when you need to connect
 
 ### `.env.local` (Local Development)
 Contains local development configuration with additional PostgreSQL environment variables.
+
+**⚠️ Security Note:** The actual .env files contain sensitive Spotify API credentials. Never commit these files to git. The .gitignore is configured to exclude them.
+
+## 🔑 Setting Up Spotify Credentials
+
+To get your own Spotify credentials:
+
+1. **Create Spotify App:**
+   - Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
+   - Create a new application
+   - Note down your `Client ID` and `Client Secret`
+
+2. **Update Environment Files:**
+   ```bash
+   # Update your .env file
+   SPOTIFY_CLIENT_ID=your_actual_client_id
+   SPOTIFY_CLIENT_SECRET=your_actual_client_secret
+   DATABASE_URL=postgresql://songsymmetry_user:songsymmetry_local_pass@localhost:5432/songsymmetry_local
+   ```
+
+3. **Configure Redirect URIs:**
+   - Add `http://localhost:3000/api/auth/callback/spotify` to your Spotify app settings
 
 ## 🔄 Switching Between Databases
 
