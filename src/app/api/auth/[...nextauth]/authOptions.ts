@@ -20,44 +20,73 @@ export type AuthUser = {
 const authOptions: AuthOptions = {
   providers: [spotifyProfile],
   session: {
-    maxAge: 24 * 60 * 60, // 24 hours instead of 1 hour
-    updateAge: 2 * 60 * 60, // Update session every 2 hours
+    strategy: "jwt" as const,
+    maxAge: 24 * 60 * 60, // 24 hours
+    updateAge: 5 * 60, // Update session every 5 minutes to trigger token refresh checks
   },
   callbacks: {
     async jwt({ token, account }: { token: JWT; account: Account | null }) {
-      if (!account) {
+      // If this is the first time (account exists), save the tokens
+      if (account) {
+        const newToken = {
+          ...token,
+          access_token: account.access_token,
+          token_type: account.token_type,
+          expires_at: account.expires_at ?? Math.floor(Date.now() / 1000) + 3600,
+          expires_in: 3600,
+          refresh_token: account.refresh_token,
+          scope: account.scope,
+          id: account.providerAccountId,
+        };
+        console.log("Initial token saved for user:", token.email);
+        return newToken;
+      }
+
+      // For subsequent requests, check if we need to refresh the token
+      if (!token.access_token || !token.expires_at) {
+        console.log("Missing token data, returning token as-is");
         return token;
       }
 
-      const updatedToken = {
-        ...token,
-        access_token: account?.access_token,
-        token_type: account?.token_type,
-        expires_at: account?.expires_at ?? Date.now() / 1000,
-        expires_in: (account?.expires_at ?? 0) - Date.now() / 1000,
-        refresh_token: account?.refresh_token,
-        scope: account?.scope,
-        id: account?.providerAccountId,
-      };
-
       // Convert expires_at to milliseconds for comparison with Date.now()
-      const expiresAtMs = (updatedToken.expires_at as number) * 1000;
+      const expiresAtMs = (token.expires_at as number) * 1000;
       
-      // Check if the token is expired or about to expire (within 10 minutes)
-      if (Date.now() >= expiresAtMs - 10 * 60 * 1000) {
-        console.log("Token expired or about to expire, refreshing access token");
-        return refreshAccessToken(updatedToken);
+      // Check if the token is expired or about to expire (within 5 minutes)
+      if (Date.now() >= expiresAtMs - 5 * 60 * 1000) {
+        console.log("Token expired or about to expire, refreshing access token for:", token.email);
+        const refreshedToken = await refreshAccessToken(token);
+        
+        // If refresh failed, return the error
+        if ('error' in refreshedToken && refreshedToken.error) {
+          console.error("Token refresh failed for:", token.email);
+          return refreshedToken;
+        }
+        
+        console.log("Token refreshed successfully for:", token.email);
+        return refreshedToken;
       }
 
-      return updatedToken;
+      // Token is still valid
+      return token;
     },
     async session({ session, token }: { session: any; token: any }) {
+      // If there's an error with the token (like refresh failure), include it in the session
+      if (token.error) {
+        session.error = token.error;
+        console.error("Session error:", token.error, "for user:", token.email);
+        return session;
+      }
+
+      // Calculate the current expires_in value based on expires_at
+      const now = Math.floor(Date.now() / 1000);
+      const expiresIn = token.expires_at ? (token.expires_at as number) - now : 0;
+
       const user: AuthUser = {
         ...session.user,
         access_token: token.access_token,
         token_type: token.token_type,
         expires_at: token.expires_at,
-        expires_in: token.expires_in,
+        expires_in: expiresIn,
         refresh_token: token.refresh_token,
         scope: token.scope,
         id: token.id,
@@ -65,7 +94,6 @@ const authOptions: AuthOptions = {
         spotifyToken: token.access_token,
       };
       session.user = user;
-      session.error = token.error;
       return session;
     },
   },

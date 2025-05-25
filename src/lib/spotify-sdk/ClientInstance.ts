@@ -22,15 +22,42 @@ class NextAuthStrategy implements IAuthStrategy {
   public async getAccessToken(): Promise<AccessToken> {
     const session: any = await getSession();
     if (!session) {
+      console.log("No session found, returning empty token");
       return {} as AccessToken;
     }
 
     if (session?.error === "RefreshAccessTokenError") {
-      await signIn();
-      return this.getAccessToken();
+      console.log("Refresh token error, redirecting to sign in");
+      await signIn('spotify');
+      return {} as AccessToken;
     }
 
     const { user }: { user: AuthUser } = session;
+
+    if (!user?.access_token) {
+      console.log("No access token in session, returning empty token");
+      return {} as AccessToken;
+    }
+
+    // Check if token is expired or about to expire
+    const now = Math.floor(Date.now() / 1000);
+    const tokenExpiresAt = user.expires_at;
+    
+    if (tokenExpiresAt && now >= tokenExpiresAt - 300) { // 5 minutes buffer
+      console.log("Token expired or about to expire, triggering session update");
+      // Force session refresh by calling getSession again
+      const updatedSession: any = await getSession();
+      if (updatedSession?.user?.access_token) {
+        const { user: updatedUser }: { user: AuthUser } = updatedSession;
+        return {
+          access_token: updatedUser.access_token,
+          token_type: "Bearer",
+          expires_in: updatedUser.expires_in,
+          expires: updatedUser.expires_at,
+          refresh_token: updatedUser.refresh_token,
+        } as AccessToken;
+      }
+    }
 
     return {
       access_token: user.access_token,

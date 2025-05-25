@@ -1,4 +1,4 @@
-import { SpotifyApi, SpotifyConfiguration } from "@spotify/web-api-ts-sdk";
+import { SpotifyApi } from "@spotify/web-api-ts-sdk";
 
 let serverSpotifyClient: SpotifyApi | null = null;
 
@@ -30,10 +30,10 @@ export function getServerSpotifyClient(): SpotifyApi {
 export async function searchSpotifyTrack(query: string) {
   try {
     const client = getServerSpotifyClient();
-    const results = await client.search(query, ['track'], 'US', 1);
+    const results = await client.search(query, ["track"], "US", 1);
     return results.tracks.items[0] || null;
   } catch (error) {
-    console.error('Error searching Spotify track:', error);
+    console.error("Error searching Spotify track:", error);
     return null;
   }
 }
