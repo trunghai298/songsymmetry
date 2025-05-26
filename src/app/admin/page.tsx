@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
+import Image from "next/image";
 import Container from "../components/core/Container";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,13 +37,7 @@ export default function AdminPage() {
 
   const isAdminUser = session?.user && (session.user as any).id === ADMIN_USER_ID;
 
-  useEffect(() => {
-    if (status === "authenticated" && isAdminUser) {
-      fetchRecentGames();
-    }
-  }, [status, isAdminUser]);
-
-  const fetchRecentGames = async () => {
+  const fetchRecentGames = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await fetch("/api/daily-song-game/admin?limit=5");
@@ -67,7 +62,13 @@ export default function AdminPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    if (status === "authenticated" && isAdminUser) {
+      fetchRecentGames();
+    }
+  }, [status, isAdminUser, fetchRecentGames]);
 
   const generateTodayGame = async () => {
     setIsGenerating(true);
@@ -142,7 +143,7 @@ export default function AdminPage() {
           <div className="flex items-center justify-center min-h-[50vh]">
             <div className="text-center">
               <h1 className="text-2xl font-bold text-white mb-4">Access Denied</h1>
-              <p className="text-gray-400">You don't have permission to access the admin panel</p>
+              <p className="text-gray-400">You don&apos;t have permission to access the admin panel</p>
               <div className="mt-6">
                 <Button
                   onClick={() => window.history.back()}
@@ -180,12 +181,12 @@ export default function AdminPage() {
             <p className="text-gray-300">Manage daily song games and system settings</p>
           </div>
 
-          {/* Today's Game Status */}
+          {/* Today&apos;s Game Status */}
           <Card className="bg-gray-800 border-gray-700 mb-8">
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-purple-400" />
-                Today's Game Status
+                Today&apos;s Game Status
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -225,7 +226,7 @@ export default function AdminPage() {
                     </div>
                     <div className="flex-1">
                       <h3 className="text-white font-semibold">No Game Today</h3>
-                      <p className="text-gray-300">Generate today's daily song game</p>
+                      <p className="text-gray-300">Generate today&apos;s daily song game</p>
                     </div>
                   </div>
                   
@@ -235,7 +236,7 @@ export default function AdminPage() {
                     className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
                   >
                     <Play className="w-5 h-5" />
-                    {isGenerating ? "Generating..." : "Generate Today's Game"}
+                    {isGenerating ? "Generating..." : "Generate Today&apos;s Game"}
                   </Button>
                 </div>
               )}
@@ -261,9 +262,11 @@ export default function AdminPage() {
                       className="flex items-center gap-4 p-4 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors"
                     >
                       {game.imageUrl && (
-                        <img
+                        <Image
                           src={game.imageUrl}
                           alt={game.songName}
+                          width={48}
+                          height={48}
                           className="w-12 h-12 rounded-md object-cover"
                         />
                       )}
