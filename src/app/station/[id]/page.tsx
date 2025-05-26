@@ -18,6 +18,7 @@ import { getAuthUser } from "@/lib/session";
 import { useStationData, StationTrack } from "@/hooks/useStationData";
 import { useStationPlayingState } from "@/hooks/useStationPlayingState";
 import TrackList from "./components/TrackList";
+import { setPlaylist } from "@/lib/redux/slices/playlistSlices";
 
 export default function StationDetailPage() {
   const params = useParams();
@@ -25,7 +26,11 @@ export default function StationDetailPage() {
   const router = useRouter();
   const { data: session } = useSession();
   const { toast } = useToast();
-  const { playTrack: setTrack, startPlayback } = usePlayer();
+  const {
+    playTrack: setTrack,
+    startPlayback,
+    getCurrentPlaybackState,
+  } = usePlayer();
   const { client: spotify } = useSpotify();
 
   // Use custom hooks
@@ -244,6 +249,161 @@ export default function StationDetailPage() {
       });
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  // Function to get tracks in the same order as displayed in UI
+  const getUIOrderedTracks = (tracks: StationTrack[]) => {
+    if (!tracks || tracks.length === 0) return [];
+
+    const playingTrackIndex = tracks.findIndex((track) =>
+      isTrackCurrentlyPlaying(track)
+    );
+
+    if (playingTrackIndex === -1) {
+      // No currently playing track, return original order
+      return tracks;
+    }
+
+    // Move playing track to the top (same as TrackList component)
+    const playingTrack = tracks[playingTrackIndex];
+    const otherTracks = tracks.filter(
+      (_, index) => index !== playingTrackIndex
+    );
+
+    return [playingTrack, ...otherTracks];
+  };
+
+  const handlePlayStation = async () => {
+    if (!station || !station.tracks || station.tracks.length === 0) {
+      toast({
+        title: "No tracks to play",
+        description: "This station doesn't have any tracks yet",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!session?.user) {
+      toast({
+        title: "Authentication required",
+        description: "You must be logged in to play station tracks",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // If station has a Spotify playlist, play it directly
+      if (station.playlistId) {
+        setPlaylist({ id: station.playlistId } as any);
+        return;
+      }
+
+      toast({
+        title: "Loading station...",
+        description: "Searching for tracks on Spotify",
+      });
+
+      // Get tracks in the same order as displayed in UI
+      const orderedTracks = getUIOrderedTracks(station.tracks);
+
+      // Convert station tracks to Spotify Track objects (maintaining UI order)
+      const spotifyTrackPromises = orderedTracks
+        .filter((track) => track.trackId)
+        .map(convertStationTrackToSpotifyTrack);
+
+      const spotifyTrackResults = await Promise.all(spotifyTrackPromises);
+      const spotifyTracks: Track[] = spotifyTrackResults.filter(
+        (track): track is Track => track !== null
+      );
+
+      if (spotifyTracks.length === 0) {
+        toast({
+          title: "No playable tracks",
+          description: "Unable to find Spotify tracks for this station",
+          variant: "destructive",
+        });
+        return;
+      }
+      // Get available devices for actual playback
+      const devices = await getAvailableDevices();
+      if (devices.length === 0) {
+        toast({
+          title: "No Active Device",
+          description: "Please open Spotify on a device first",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const activeDevice =
+        devices.find((device: any) => device.is_active) || devices[0];
+
+      // Start actual Spotify playback with track URIs
+      const trackUris = spotifyTracks.map((track) => track.uri);
+      await startPlayback(trackUris, activeDevice.id || undefined);
+
+      // Always clear the previous local playing track first
+      console.log("🧹 Clearing previous local playing track");
+      setLocalPlayingTrack(null);
+
+      // Simple approach: just set the first station track as playing
+      // since we're playing the station in its UI order
+      const firstStationTrack = orderedTracks[0];
+      if (firstStationTrack) {
+        console.log(
+          "🎯 Setting first station track as playing:",
+          firstStationTrack.name
+        );
+        setTimeout(() => {
+          setLocalPlayingTrack(firstStationTrack);
+        }, 100);
+
+        // Update database with station playing state (fire and forget)
+        const firstSpotifyTrack = spotifyTracks[0];
+        updateStationPlayingState(
+          true,
+          firstStationTrack.id,
+          firstSpotifyTrack?.id
+        ).catch(console.error);
+      } else {
+        console.log("❌ No tracks in station");
+      }
+
+      // Force refresh player state after a short delay
+      setTimeout(async () => {
+        const newState = await getCurrentPlaybackState();
+        console.log(
+          "🔄 New player state:",
+          newState?.item?.name,
+          newState?.is_playing
+        );
+      }, 2000);
+
+      toast({
+        title: "Playing station",
+        description: `Started playing ${spotifyTracks.length} tracks from ${station.name}`,
+      });
+    } catch (error: any) {
+      console.error("Error playing station:", error);
+
+      // Handle specific Spotify API errors
+      let errorMessage = "Failed to play station tracks";
+      if (error?.message?.includes("No active device")) {
+        errorMessage = "Please open Spotify on a device first";
+      } else if (error?.message?.includes("Premium")) {
+        errorMessage = "Spotify Premium required for playback control";
+      } else if (error?.message?.includes("Authentication")) {
+        errorMessage = "Please sign in to Spotify again";
+      }
+
+      toast({
+        title: "Playback Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
     }
   };
 
@@ -782,67 +942,100 @@ export default function StationDetailPage() {
 
             <div className="flex flex-col sm:flex-row gap-2 lg:gap-3 w-full sm:w-auto">
               {!isUserMember() ? (
-                <Button
-                  onClick={handleJoinStation}
-                  disabled={isJoining}
-                  className="flex-1 sm:w-auto bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 disabled:opacity-50"
-                >
-                  {isJoining ? (
-                    <>
-                      <i className="bi bi-arrow-repeat animate-spin mr-2"></i>
-                      <span className="hidden sm:inline">Joining...</span>
-                      <span className="sm:hidden">Join</span>
-                    </>
-                  ) : (
-                    <>
-                      <i className="bi bi-person-plus mr-2"></i>
-                      <span className="hidden sm:inline">Join Station</span>
-                      <span className="sm:hidden">Join</span>
-                    </>
-                  )}
-                </Button>
+                <>
+                  <Button
+                    onClick={handlePlayStation}
+                    disabled={!station.tracks.length}
+                    className="flex-1 sm:w-auto bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 disabled:opacity-50"
+                  >
+                    <i className="bi bi-play-fill mr-2"></i>
+                    <span className="hidden sm:inline">Play Station</span>
+                    <span className="sm:hidden">Play</span>
+                  </Button>
+                  <Button
+                    onClick={handleJoinStation}
+                    disabled={isJoining}
+                    className="flex-1 sm:w-auto bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 disabled:opacity-50"
+                  >
+                    {isJoining ? (
+                      <>
+                        <i className="bi bi-arrow-repeat animate-spin mr-2"></i>
+                        <span className="hidden sm:inline">Joining...</span>
+                        <span className="sm:hidden">Join</span>
+                      </>
+                    ) : (
+                      <>
+                        <i className="bi bi-person-plus mr-2"></i>
+                        <span className="hidden sm:inline">Join Station</span>
+                        <span className="sm:hidden">Join</span>
+                      </>
+                    )}
+                  </Button>
+                </>
               ) : !isStationOwner() ? (
-                <Button
-                  variant="outline"
-                  onClick={handleLeaveStation}
-                  disabled={isLeaving}
-                  className="flex-1 sm:w-32 lg:w-36 border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white disabled:opacity-50"
-                >
-                  {isLeaving ? (
-                    <>
-                      <i className="bi bi-arrow-repeat animate-spin mr-2"></i>
-                      <span className="hidden sm:inline">Leaving...</span>
-                      <span className="sm:hidden">Leave</span>
-                    </>
-                  ) : (
-                    <>
-                      <i className="bi bi-person-dash mr-2"></i>
-                      <span className="hidden sm:inline">Leave Station</span>
-                      <span className="sm:hidden">Leave</span>
-                    </>
-                  )}
-                </Button>
+                <>
+                  <Button
+                    onClick={handlePlayStation}
+                    disabled={!station.tracks.length}
+                    className="flex-1 sm:w-auto bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 disabled:opacity-50"
+                  >
+                    <i className="bi bi-play-fill mr-2"></i>
+                    <span className="hidden sm:inline">Play Station</span>
+                    <span className="sm:hidden">Play</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleLeaveStation}
+                    disabled={isLeaving}
+                    className="flex-1 sm:w-32 lg:w-36 border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white disabled:opacity-50"
+                  >
+                    {isLeaving ? (
+                      <>
+                        <i className="bi bi-arrow-repeat animate-spin mr-2"></i>
+                        <span className="hidden sm:inline">Leaving...</span>
+                        <span className="sm:hidden">Leave</span>
+                      </>
+                    ) : (
+                      <>
+                        <i className="bi bi-person-dash mr-2"></i>
+                        <span className="hidden sm:inline">Leave Station</span>
+                        <span className="sm:hidden">Leave</span>
+                      </>
+                    )}
+                  </Button>
+                </>
               ) : (
-                <Button
-                  variant="destructive"
-                  onClick={handleDeleteStation}
-                  disabled={isDeleting}
-                  className="flex-1 sm:w-32 lg:w-36 disabled:opacity-50"
-                >
-                  {isDeleting ? (
-                    <>
-                      <i className="bi bi-arrow-repeat animate-spin mr-2"></i>
-                      <span className="hidden sm:inline">Deleting...</span>
-                      <span className="sm:hidden">Delete</span>
-                    </>
-                  ) : (
-                    <>
-                      <i className="bi bi-trash mr-2"></i>
-                      <span className="hidden sm:inline">Delete Station</span>
-                      <span className="sm:hidden">Delete</span>
-                    </>
-                  )}
-                </Button>
+                <>
+                  <Button
+                    onClick={handlePlayStation}
+                    disabled={!station.tracks.length}
+                    className="flex-1 sm:w-auto bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 disabled:opacity-50"
+                  >
+                    <i className="bi bi-play-fill mr-2"></i>
+                    <span className="hidden sm:inline">Play Station</span>
+                    <span className="sm:hidden">Play</span>
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={handleDeleteStation}
+                    disabled={isDeleting}
+                    className="flex-1 sm:w-32 lg:w-36 disabled:opacity-50"
+                  >
+                    {isDeleting ? (
+                      <>
+                        <i className="bi bi-arrow-repeat animate-spin mr-2"></i>
+                        <span className="hidden sm:inline">Deleting...</span>
+                        <span className="sm:hidden">Delete</span>
+                      </>
+                    ) : (
+                      <>
+                        <i className="bi bi-trash mr-2"></i>
+                        <span className="hidden sm:inline">Delete Station</span>
+                        <span className="sm:hidden">Delete</span>
+                      </>
+                    )}
+                  </Button>
+                </>
               )}
             </div>
           </div>

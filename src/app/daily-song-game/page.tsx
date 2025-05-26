@@ -28,17 +28,19 @@ function CountdownTimer() {
       const tomorrow = new Date(now);
       tomorrow.setDate(tomorrow.getDate() + 1);
       tomorrow.setHours(0, 0, 0, 0);
-      
+
       const diff = tomorrow.getTime() - now.getTime();
-      
+
       if (diff > 0) {
         const hours = Math.floor(diff / (1000 * 60 * 60));
         const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
         const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-        
-        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+        return `${hours.toString().padStart(2, "0")}:${minutes
+          .toString()
+          .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
       }
-      
+
       return "00:00:00";
     };
 
@@ -104,7 +106,7 @@ interface ComparisonResult {
 export default function DailySongGamePage() {
   const { data: session } = useSession();
   const { toast } = useToast();
-  
+
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -112,7 +114,9 @@ export default function DailySongGamePage() {
   const [isSearching, setIsSearching] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [comparisons, setComparisons] = useState<ComparisonResult[]>([]);
-  const [animatingRowIndex, setAnimatingRowIndex] = useState<number | null>(null);
+  const [animatingRowIndex, setAnimatingRowIndex] = useState<number | null>(
+    null
+  );
   const [revealedColumns, setRevealedColumns] = useState<number>(0);
   const [showConfetti, setShowConfetti] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -120,41 +124,40 @@ export default function DailySongGamePage() {
   const [completionCount, setCompletionCount] = useState<number | null>(null);
 
   // Debounced search function
-  const debouncedSearch = useCallback(
-    (query: string) => {
-      if (query.trim().length < 2) {
-        setSearchResults([]);
-        setIsSearching(false);
-        return;
-      }
+  const debouncedSearch = useCallback((query: string) => {
+    if (query.trim().length < 2) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
 
-      const performSearch = async () => {
-        try {
-          const response = await fetch(`/api/spotify/search-suggestions?q=${encodeURIComponent(query)}`);
-          if (response.ok) {
-            const data = await response.json();
-            setSearchResults(data.tracks || []);
-          } else {
-            setSearchResults([]);
-          }
-        } catch (error) {
-          console.error("Search error:", error);
+    const performSearch = async () => {
+      try {
+        const response = await fetch(
+          `/api/spotify/search-suggestions?q=${encodeURIComponent(query)}`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setSearchResults(data.tracks || []);
+        } else {
           setSearchResults([]);
-        } finally {
-          setIsSearching(false);
         }
-      };
+      } catch (error) {
+        console.error("Search error:", error);
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    };
 
-      setTimeout(performSearch, 300);
-    },
-    []
-  );
+    setTimeout(performSearch, 300);
+  }, []);
 
   // Handle search input changes
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSearchQuery(value);
-    
+
     if (value.trim().length >= 2) {
       setIsSearching(true);
       debouncedSearch(value);
@@ -172,39 +175,72 @@ export default function DailySongGamePage() {
         // Reverse attempts to show newest first
         const reversedData = {
           ...data,
-          attempts: data.attempts.slice().reverse()
+          attempts: data.attempts.slice().reverse(),
         };
         setGameState(reversedData);
-        
+
         // Load comparison results for existing attempts (reverse to show newest first)
         const comps: ComparisonResult[] = [];
         for (const attempt of data.attempts.slice().reverse()) {
           // Calculate comparison for each attempt
           if (data.answer) {
             comps.push({
-              songName: attempt.isCorrect ? 'correct' : 'incorrect',
-              artistName: attempt.guessedArtistName === data.answer.artistName ? 'correct' : 'incorrect',
-              albumName: attempt.guessedAlbumName === data.answer.albumName ? 'correct' : 'incorrect',
-              genre: attempt.guessedGenre === data.answer.genre ? 'correct' : 'incorrect',
-              releaseYear: attempt.guessedReleaseYear === data.answer.releaseYear ? 'correct' : 
-                          Math.abs((attempt.guessedReleaseYear || 0) - (data.answer.releaseYear || 0)) <= 2 ? 'close' : 'incorrect',
-              popularity: attempt.guessedPopularity === data.answer.popularity ? 'correct' :
-                         Math.abs((attempt.guessedPopularity || 0) - (data.answer.popularity || 0)) <= 10 ? 'close' : 'incorrect',
-              durationMs: attempt.guessedDurationMs === data.answer.durationMs ? 'correct' :
-                         Math.abs((attempt.guessedDurationMs || 0) - (data.answer.durationMs || 0)) <= 30000 ? 'close' : 'incorrect',
-              isExplicit: attempt.guessedIsExplicit === data.answer.isExplicit ? 'correct' : 'incorrect'
+              songName: attempt.isCorrect ? "correct" : "incorrect",
+              artistName:
+                attempt.guessedArtistName === data.answer.artistName
+                  ? "correct"
+                  : "incorrect",
+              albumName:
+                attempt.guessedAlbumName === data.answer.albumName
+                  ? "correct"
+                  : "incorrect",
+              genre:
+                attempt.guessedGenre === data.answer.genre
+                  ? "correct"
+                  : "incorrect",
+              releaseYear:
+                attempt.guessedReleaseYear === data.answer.releaseYear
+                  ? "correct"
+                  : Math.abs(
+                      (attempt.guessedReleaseYear || 0) -
+                        (data.answer.releaseYear || 0)
+                    ) <= 2
+                  ? "close"
+                  : "incorrect",
+              popularity:
+                attempt.guessedPopularity === data.answer.popularity
+                  ? "correct"
+                  : Math.abs(
+                      (attempt.guessedPopularity || 0) -
+                        (data.answer.popularity || 0)
+                    ) <= 10
+                  ? "close"
+                  : "incorrect",
+              durationMs:
+                attempt.guessedDurationMs === data.answer.durationMs
+                  ? "correct"
+                  : Math.abs(
+                      (attempt.guessedDurationMs || 0) -
+                        (data.answer.durationMs || 0)
+                    ) <= 30000
+                  ? "close"
+                  : "incorrect",
+              isExplicit:
+                attempt.guessedIsExplicit === data.answer.isExplicit
+                  ? "correct"
+                  : "incorrect",
             });
           } else {
             // If no answer data (user hasn't won yet), show all as unknown/gray
             comps.push({
               songName: attempt.isCorrect ? "correct" : "incorrect",
               artistName: "incorrect",
-              albumName: "incorrect", 
+              albumName: "incorrect",
               genre: "incorrect",
               releaseYear: "incorrect",
               popularity: "incorrect",
               durationMs: "incorrect",
-              isExplicit: "incorrect"
+              isExplicit: "incorrect",
             });
           }
         }
@@ -213,7 +249,7 @@ export default function DailySongGamePage() {
         toast({
           title: "No game available",
           description: "Today's song hasn't been set up yet. Check back later!",
-          variant: "default"
+          variant: "default",
         });
       }
     } catch (error) {
@@ -221,7 +257,7 @@ export default function DailySongGamePage() {
       toast({
         title: "Error",
         description: "Failed to load today's game",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -241,8 +277,8 @@ export default function DailySongGamePage() {
     };
 
     updateWindowSize();
-    window.addEventListener('resize', updateWindowSize);
-    return () => window.removeEventListener('resize', updateWindowSize);
+    window.addEventListener("resize", updateWindowSize);
+    return () => window.removeEventListener("resize", updateWindowSize);
   }, []);
 
   // Show confetti if user has already won when loading the page
@@ -250,9 +286,9 @@ export default function DailySongGamePage() {
     if (gameState?.hasWon && windowSize.width > 0) {
       // Fetch completion count for returning winners
       fetchCompletionCount(gameState.gameId);
-      
+
       setShowConfetti(true);
-      
+
       // Stop confetti after 5 seconds for returning users, then show modal
       setTimeout(() => {
         setShowConfetti(false);
@@ -266,7 +302,9 @@ export default function DailySongGamePage() {
 
   const fetchCompletionCount = async (gameId: string) => {
     try {
-      const response = await fetch(`/api/daily-song-game/stats?gameId=${gameId}`);
+      const response = await fetch(
+        `/api/daily-song-game/stats?gameId=${gameId}`
+      );
       if (response.ok) {
         const data = await response.json();
         setCompletionCount(data.stats.winners);
@@ -284,28 +322,32 @@ export default function DailySongGamePage() {
       const response = await fetch("/api/daily-song-game", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guessedSongId: track.id })
+        body: JSON.stringify({ guessedSongId: track.id }),
       });
 
       if (response.ok) {
         const data = await response.json();
-        
+
         // Update game state (prepend new attempt to show newest first)
-        setGameState(prev => prev ? {
-          ...prev,
-          attempts: [data.attempt, ...prev.attempts],
-          hasWon: data.isCorrect,
-          attemptCount: prev.attemptCount + 1,
-          canPlayMore: !data.gameOver,
-          answer: data.answer
-        } : null);
+        setGameState((prev) =>
+          prev
+            ? {
+                ...prev,
+                attempts: [data.attempt, ...prev.attempts],
+                hasWon: data.isCorrect,
+                attemptCount: prev.attemptCount + 1,
+                canPlayMore: !data.gameOver,
+                answer: data.answer,
+              }
+            : null
+        );
 
         // Start animation for the new row (index 0 since we prepend)
         setAnimatingRowIndex(0);
         setRevealedColumns(0);
-        
+
         // Add comparison result (prepend to show newest first)
-        setComparisons(prev => [data.comparison, ...prev]);
+        setComparisons((prev) => [data.comparison, ...prev]);
 
         // Clear search
         setSearchQuery("");
@@ -314,7 +356,7 @@ export default function DailySongGamePage() {
         // Trigger column reveal animation
         const animateColumns = () => {
           const totalColumns = 8; // song, artist, album, genre, year, popularity, duration, explicit
-          
+
           for (let i = 0; i <= totalColumns; i++) {
             setTimeout(() => {
               setRevealedColumns(i);
@@ -335,10 +377,10 @@ export default function DailySongGamePage() {
         if (data.isCorrect) {
           // Fetch completion count
           fetchCompletionCount(gameState.gameId);
-          
+
           // Trigger confetti for longer duration
           setShowConfetti(true);
-          
+
           // Stop confetti after 8 seconds, then show success modal
           setTimeout(() => {
             setShowConfetti(false);
@@ -350,8 +392,10 @@ export default function DailySongGamePage() {
 
           toast({
             title: "Congratulations! 🎉",
-            description: `You guessed it in ${data.attempt.attemptNumber} attempt${data.attempt.attemptNumber > 1 ? 's' : ''}!`,
-            variant: "default"
+            description: `You guessed it in ${
+              data.attempt.attemptNumber
+            } attempt${data.attempt.attemptNumber > 1 ? "s" : ""}!`,
+            variant: "default",
           });
         }
       } else {
@@ -359,7 +403,7 @@ export default function DailySongGamePage() {
         toast({
           title: "Error",
           description: error.error || "Failed to submit guess",
-          variant: "destructive"
+          variant: "destructive",
         });
       }
     } catch (error) {
@@ -367,7 +411,7 @@ export default function DailySongGamePage() {
       toast({
         title: "Error",
         description: "Failed to submit guess",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);
@@ -376,14 +420,22 @@ export default function DailySongGamePage() {
 
   const getResultColor = (result: "correct" | "close" | "incorrect") => {
     switch (result) {
-      case "correct": return "bg-green-500";
-      case "close": return "bg-yellow-500";
-      case "incorrect": return "bg-red-500";
-      default: return "bg-gray-500";
+      case "correct":
+        return "bg-green-500";
+      case "close":
+        return "bg-yellow-500";
+      case "incorrect":
+        return "bg-red-500";
+      default:
+        return "bg-gray-500";
     }
   };
 
-  const getDirectionalArrow = (guessedValue: number | null, actualValue: number | null, result: string) => {
+  const getDirectionalArrow = (
+    guessedValue: number | null,
+    actualValue: number | null,
+    result: string
+  ) => {
     if (result === "correct" || !guessedValue || !actualValue) return "";
     if (guessedValue < actualValue) return "↑"; // Higher
     if (guessedValue > actualValue) return "↓"; // Lower
@@ -394,7 +446,7 @@ export default function DailySongGamePage() {
     if (!ms) return "Unknown";
     const minutes = Math.floor(ms / 60000);
     const seconds = Math.floor((ms % 60000) / 1000);
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
   };
 
   if (isLoading) {
@@ -411,8 +463,12 @@ export default function DailySongGamePage() {
     return (
       <Container>
         <div className="text-center py-16">
-          <h1 className="text-4xl font-bold text-white mb-4">Daily Song Game</h1>
-          <p className="text-gray-400 mb-8">Sign in to play today&apos;s song guessing game!</p>
+          <h1 className="text-4xl font-bold text-white mb-4">
+            Daily Song Game
+          </h1>
+          <p className="text-gray-400 mb-8">
+            Sign in to play today&apos;s song guessing game!
+          </p>
         </div>
       </Container>
     );
@@ -422,8 +478,12 @@ export default function DailySongGamePage() {
     return (
       <Container>
         <div className="text-center py-16">
-          <h1 className="text-4xl font-bold text-white mb-4">Daily Song Game</h1>
-          <p className="text-gray-400">No game available for today. Check back later!</p>
+          <h1 className="text-4xl font-bold text-white mb-4">
+            Daily Song Game
+          </h1>
+          <p className="text-gray-400">
+            No game available for today. Check back later!
+          </p>
         </div>
       </Container>
     );
@@ -439,11 +499,20 @@ export default function DailySongGamePage() {
           recycle={false}
           numberOfPieces={500}
           gravity={0.08}
-          colors={['#4ade80', '#22c55e', '#16a34a', '#15803d', '#166534', '#fbbf24', '#f59e0b', '#d97706']}
+          colors={[
+            "#4ade80",
+            "#22c55e",
+            "#16a34a",
+            "#15803d",
+            "#166534",
+            "#fbbf24",
+            "#f59e0b",
+            "#d97706",
+          ]}
           wind={0.02}
         />
       )}
-      
+
       <div className="max-w-4xl mx-auto py-8">
         {/* Header */}
         <div className="text-center mb-8">
@@ -451,12 +520,15 @@ export default function DailySongGamePage() {
             Guess today&apos;s song!
           </h1>
           <p className="text-gray-400 mb-4">
-            {gameState.hasWon 
-              ? `You won in ${gameState.attemptCount} attempt${gameState.attemptCount > 1 ? 's' : ''}! 🎉`
-              : `${gameState.attemptCount} attempt${gameState.attemptCount !== 1 ? 's' : ''} made`
-            }
+            {gameState.hasWon
+              ? `You won in ${gameState.attemptCount} attempt${
+                  gameState.attemptCount > 1 ? "s" : ""
+                }! 🎉`
+              : `${gameState.attemptCount} attempt${
+                  gameState.attemptCount !== 1 ? "s" : ""
+                } made`}
           </p>
-          
+
           {/* Color Legend */}
           <div className="flex justify-center items-center gap-6 text-sm bg-gray-800/30 rounded-lg p-4 max-w-md mx-auto">
             <div className="flex items-center gap-2">
@@ -503,14 +575,16 @@ export default function DailySongGamePage() {
                   >
                     <div className="flex items-center gap-3">
                       {track.image && (
-                        <img 
-                          src={track.image} 
+                        <img
+                          src={track.image}
                           alt={track.name}
                           className="w-10 h-10 rounded"
                         />
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-white truncate">{track.name}</p>
+                        <p className="font-medium text-white truncate">
+                          {track.name}
+                        </p>
                         <p className="text-sm text-gray-400 truncate">
                           {track.artist}
                         </p>
@@ -527,8 +601,8 @@ export default function DailySongGamePage() {
                         </div>
                       </div>
                     </div>
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       variant="ghost"
                       disabled={isSubmitting}
                       className="text-purple-400 hover:text-white hover:bg-purple-600 flex-shrink-0"
@@ -549,22 +623,40 @@ export default function DailySongGamePage() {
         {/* Game Grid - Headers */}
         <div className="mb-4">
           <div className="grid grid-cols-9 gap-2 mb-2">
-            <div className="p-3 bg-gray-800 rounded text-center text-white font-semibold">Song</div>
-            <div className="p-3 bg-gray-800 rounded text-center text-white font-semibold">Artist</div>
-            <div className="p-3 bg-gray-800 rounded text-center text-white font-semibold">Album</div>
-            <div className="p-3 bg-gray-800 rounded text-center text-white font-semibold">Genre</div>
-            <div className="p-3 bg-gray-800 rounded text-center text-white font-semibold">Year</div>
-            <div className="p-3 bg-gray-800 rounded text-center text-white font-semibold">Popularity</div>
-            <div className="p-3 bg-gray-800 rounded text-center text-white font-semibold">Duration</div>
-            <div className="p-3 bg-gray-800 rounded text-center text-white font-semibold">Explicit</div>
-            <div className="p-3 bg-gray-800 rounded text-center text-white font-semibold">Cover</div>
+            <div className="p-3 bg-gray-800 rounded text-center text-white font-semibold">
+              Song
+            </div>
+            <div className="p-3 bg-gray-800 rounded text-center text-white font-semibold">
+              Artist
+            </div>
+            <div className="p-3 bg-gray-800 rounded text-center text-white font-semibold">
+              Album
+            </div>
+            <div className="p-3 bg-gray-800 rounded text-center text-white font-semibold">
+              Genre
+            </div>
+            <div className="p-3 bg-gray-800 rounded text-center text-white font-semibold">
+              Year
+            </div>
+            <div className="p-3 bg-gray-800 rounded text-center text-white font-semibold">
+              Popularity
+            </div>
+            <div className="p-3 bg-gray-800 rounded text-center text-white font-semibold">
+              Duration
+            </div>
+            <div className="p-3 bg-gray-800 rounded text-center text-white font-semibold">
+              Explicit
+            </div>
+            <div className="p-3 bg-gray-800 rounded text-center text-white font-semibold">
+              Cover
+            </div>
           </div>
 
           {/* Attempts */}
           {gameState.attempts.map((attempt, index) => {
             const comparison = comparisons[index];
             const isAnimating = animatingRowIndex === index;
-            
+
             const getColumnAnimationClass = (columnIndex: number) => {
               if (!isAnimating) return "";
               const isRevealed = columnIndex < revealedColumns;
@@ -574,7 +666,10 @@ export default function DailySongGamePage() {
               return "animate-bounce";
             };
 
-            const getColumnBackgroundColor = (columnIndex: number, comparisonResult: "correct" | "close" | "incorrect") => {
+            const getColumnBackgroundColor = (
+              columnIndex: number,
+              comparisonResult: "correct" | "close" | "incorrect"
+            ) => {
               if (isAnimating && columnIndex >= revealedColumns) {
                 return "bg-gray-600";
               }
@@ -583,49 +678,129 @@ export default function DailySongGamePage() {
 
             return (
               <div key={attempt.id} className="grid grid-cols-9 gap-2 mb-2">
-                <div className={`p-3 rounded text-center text-white font-medium transition-all duration-500 ${getColumnBackgroundColor(0, (comparison?.songName || "incorrect") as "correct" | "close" | "incorrect")} ${getColumnAnimationClass(0)}`}>
+                <div
+                  className={`p-3 rounded text-center text-white font-medium transition-all duration-500 ${getColumnBackgroundColor(
+                    0,
+                    (comparison?.songName || "incorrect") as
+                      | "correct"
+                      | "close"
+                      | "incorrect"
+                  )} ${getColumnAnimationClass(0)}`}
+                >
                   {attempt.guessedSongName}
                 </div>
-                <div className={`p-3 rounded text-center text-white font-medium transition-all duration-500 ${getColumnBackgroundColor(1, (comparison?.artistName || "incorrect") as "correct" | "close" | "incorrect")} ${getColumnAnimationClass(1)}`}>
+                <div
+                  className={`p-3 rounded text-center text-white font-medium transition-all duration-500 ${getColumnBackgroundColor(
+                    1,
+                    (comparison?.artistName || "incorrect") as
+                      | "correct"
+                      | "close"
+                      | "incorrect"
+                  )} ${getColumnAnimationClass(1)}`}
+                >
                   {attempt.guessedArtistName}
                 </div>
-                <div className={`p-3 rounded text-center text-white font-medium transition-all duration-500 ${getColumnBackgroundColor(2, (comparison?.albumName || "incorrect") as "correct" | "close" | "incorrect")} ${getColumnAnimationClass(2)}`}>
+                <div
+                  className={`p-3 rounded text-center text-white font-medium transition-all duration-500 ${getColumnBackgroundColor(
+                    2,
+                    (comparison?.albumName || "incorrect") as
+                      | "correct"
+                      | "close"
+                      | "incorrect"
+                  )} ${getColumnAnimationClass(2)}`}
+                >
                   {attempt.guessedAlbumName || "Unknown"}
                 </div>
-                <div className={`p-3 rounded text-center text-white font-medium transition-all duration-500 ${getColumnBackgroundColor(3, (comparison?.genre || "incorrect") as "correct" | "close" | "incorrect")} ${getColumnAnimationClass(3)}`}>
+                <div
+                  className={`p-3 rounded text-center text-white font-medium transition-all duration-500 ${getColumnBackgroundColor(
+                    3,
+                    (comparison?.genre || "incorrect") as
+                      | "correct"
+                      | "close"
+                      | "incorrect"
+                  )} ${getColumnAnimationClass(3)}`}
+                >
                   {attempt.guessedGenre || "Unknown"}
                 </div>
-                <div className={`p-3 rounded text-center text-white font-medium transition-all duration-500 ${getColumnBackgroundColor(4, (comparison?.releaseYear || "incorrect") as "correct" | "close" | "incorrect")} ${getColumnAnimationClass(4)}`}>
+                <div
+                  className={`p-3 rounded text-center text-white font-medium transition-all duration-500 ${getColumnBackgroundColor(
+                    4,
+                    (comparison?.releaseYear || "incorrect") as
+                      | "correct"
+                      | "close"
+                      | "incorrect"
+                  )} ${getColumnAnimationClass(4)}`}
+                >
                   <div>{attempt.guessedReleaseYear || "Unknown"}</div>
                   {gameState.answer && (
                     <div className="text-xs mt-1">
-                      {getDirectionalArrow(attempt.guessedReleaseYear ?? null, gameState.answer.releaseYear ?? null, String(comparison?.releaseYear || "incorrect"))}
+                      {getDirectionalArrow(
+                        attempt.guessedReleaseYear ?? null,
+                        gameState.answer.releaseYear ?? null,
+                        String(comparison?.releaseYear || "incorrect")
+                      )}
                     </div>
                   )}
                 </div>
-                <div className={`p-3 rounded text-center text-white font-medium transition-all duration-500 ${getColumnBackgroundColor(5, (comparison?.popularity || "incorrect") as "correct" | "close" | "incorrect")} ${getColumnAnimationClass(5)}`}>
+                <div
+                  className={`p-3 rounded text-center text-white font-medium transition-all duration-500 ${getColumnBackgroundColor(
+                    5,
+                    (comparison?.popularity || "incorrect") as
+                      | "correct"
+                      | "close"
+                      | "incorrect"
+                  )} ${getColumnAnimationClass(5)}`}
+                >
                   <div>{attempt.guessedPopularity || "Unknown"}</div>
                   {gameState.answer && (
                     <div className="text-xs mt-1">
-                      {getDirectionalArrow(attempt.guessedPopularity ?? null, gameState.answer.popularity ?? null, String(comparison?.popularity || "incorrect"))}
+                      {getDirectionalArrow(
+                        attempt.guessedPopularity ?? null,
+                        gameState.answer.popularity ?? null,
+                        String(comparison?.popularity || "incorrect")
+                      )}
                     </div>
                   )}
                 </div>
-                <div className={`p-3 rounded text-center text-white font-medium transition-all duration-500 ${getColumnBackgroundColor(6, (comparison?.durationMs || "incorrect") as "correct" | "close" | "incorrect")} ${getColumnAnimationClass(6)}`}>
+                <div
+                  className={`p-3 rounded text-center text-white font-medium transition-all duration-500 ${getColumnBackgroundColor(
+                    6,
+                    (comparison?.durationMs || "incorrect") as
+                      | "correct"
+                      | "close"
+                      | "incorrect"
+                  )} ${getColumnAnimationClass(6)}`}
+                >
                   <div>{formatDuration(attempt.guessedDurationMs)}</div>
                   {gameState.answer && (
                     <div className="text-xs mt-1">
-                      {getDirectionalArrow(attempt.guessedDurationMs ?? null, gameState.answer.durationMs ?? null, String(comparison?.durationMs || "incorrect"))}
+                      {getDirectionalArrow(
+                        attempt.guessedDurationMs ?? null,
+                        gameState.answer.durationMs ?? null,
+                        String(comparison?.durationMs || "incorrect")
+                      )}
                     </div>
                   )}
                 </div>
-                <div className={`p-3 rounded text-center text-white font-medium transition-all duration-500 ${getColumnBackgroundColor(7, (comparison?.isExplicit || "incorrect") as "correct" | "close" | "incorrect")} ${getColumnAnimationClass(7)}`}>
-                  {attempt.guessedIsExplicit === true ? "Yes" : attempt.guessedIsExplicit === false ? "No" : "Unknown"}
+                <div
+                  className={`p-3 rounded text-center text-white font-medium transition-all duration-500 ${getColumnBackgroundColor(
+                    7,
+                    (comparison?.isExplicit || "incorrect") as
+                      | "correct"
+                      | "close"
+                      | "incorrect"
+                  )} ${getColumnAnimationClass(7)}`}
+                >
+                  {attempt.guessedIsExplicit === true
+                    ? "Yes"
+                    : attempt.guessedIsExplicit === false
+                    ? "No"
+                    : "Unknown"}
                 </div>
                 <div className="p-1 rounded bg-gray-700 flex items-center justify-center">
                   {attempt.guessedImageUrl && (
-                    <img 
-                      src={attempt.guessedImageUrl} 
+                    <img
+                      src={attempt.guessedImageUrl}
                       alt="Album cover"
                       className="w-10 h-10 rounded object-cover"
                     />
@@ -646,23 +821,27 @@ export default function DailySongGamePage() {
               >
                 ✕
               </button>
-              
+
               {/* Success Message */}
               <div className="text-4xl font-bold mb-4">GG WP</div>
-              
+
               {/* Song Info */}
               <div className="flex items-center justify-center gap-4 mb-6">
                 {gameState.answer?.imageUrl && (
-                  <img 
-                    src={gameState.answer.imageUrl} 
+                  <img
+                    src={gameState.answer.imageUrl}
                     alt="Album cover"
                     className="w-16 h-16 rounded-lg object-cover border-2 border-white"
                   />
                 )}
                 <div className="text-left">
                   <div className="text-sm opacity-90">You guessed</div>
-                  <div className="text-xl font-bold">{gameState.answer?.songName}</div>
-                  <div className="text-sm opacity-90">by {gameState.answer?.artistName}</div>
+                  <div className="text-xl font-bold">
+                    {gameState.answer?.songName}
+                  </div>
+                  <div className="text-sm opacity-90">
+                    by {gameState.answer?.artistName}
+                  </div>
                 </div>
               </div>
 
@@ -671,22 +850,46 @@ export default function DailySongGamePage() {
                 <div className="text-cyan-200">
                   {completionCount !== null ? (
                     completionCount === 1 ? (
-                      <>🎉 <span className="font-bold text-yellow-200">You&apos;re the first</span> to find the song today!</>
+                      <>
+                        🎉{" "}
+                        <span className="font-bold text-yellow-200">
+                          You&apos;re the first
+                        </span>{" "}
+                        to find the song today!
+                      </>
                     ) : (
-                      <>You are the <span className="font-bold text-cyan-100">{completionCount}{completionCount === 2 ? 'nd' : completionCount === 3 ? 'rd' : 'th'}</span> to find the song today</>
+                      <>
+                        You are the{" "}
+                        <span className="font-bold text-cyan-100">
+                          {completionCount}
+                          {completionCount === 2
+                            ? "nd"
+                            : completionCount === 3
+                            ? "rd"
+                            : "th"}
+                        </span>{" "}
+                        to find the song today
+                      </>
                     )
                   ) : (
-                    <span className="opacity-75">Loading completion stats...</span>
+                    <span className="opacity-75">
+                      Loading completion stats...
+                    </span>
                   )}
                 </div>
                 <div className="text-lg">
-                  Number of tries: <span className="font-bold text-cyan-100">{gameState.attemptCount}</span>
+                  Number of tries:{" "}
+                  <span className="font-bold text-cyan-100">
+                    {gameState.attemptCount}
+                  </span>
                 </div>
               </div>
 
               {/* Stats Button */}
               <button
-                onClick={() => window.location.href = '/daily-song-game/stats'}
+                onClick={() =>
+                  (window.location.href = "/daily-song-game/stats")
+                }
                 className="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-semibold transition-colors mb-6"
               >
                 📊 Stats
@@ -712,8 +915,8 @@ export default function DailySongGamePage() {
             <p className="text-gray-400 mb-4">
               Come back tomorrow for a new song to guess!
             </p>
-            <Button 
-              onClick={() => window.location.href = '/daily-song-game/stats'}
+            <Button
+              onClick={() => (window.location.href = "/daily-song-game/stats")}
               variant="outline"
               className="border-purple-500 text-purple-400 hover:bg-purple-500 hover:text-white"
             >
