@@ -32,6 +32,7 @@ export const Header = () => {
   }, []);
 
   const isAuthenticated = session.status === "authenticated";
+  const isAdminUser = session.data?.user && (session.data.user as any).id === '31scr23lvn5o3erf52cyo7vmlgai';
 
   return (
     <header className="sticky top-0 w-full p-3 sm:p-4 sm:px-10 z-50 transition-all duration-300 bg-black/20 backdrop-blur-md border-b border-white/10">
@@ -190,6 +191,29 @@ export const Header = () => {
                     currentPath === "/station" || currentPath.startsWith("/station/") ? "w-full" : "w-0 group-hover:w-full"
                   }`}></div>
                 </a>
+                {/* Admin link - only visible to admin user */}
+                {isAdminUser && (
+                  <a
+                    className={`group relative text-lg font-medium cursor-pointer transition-all duration-300 ${
+                      currentPath === "/admin" 
+                        ? "text-purple-400" 
+                        : "text-gray-200 hover:text-white"
+                    }`}
+                    onClick={() => {
+                      router.push("/admin");
+                      setCurrentPath("/admin");
+                      setIsMenuOpen(false);
+                    }}
+                  >
+                    <span className="relative z-10 flex items-center gap-2">
+                      <i className="bi bi-gear text-lg"></i>
+                      Admin
+                    </span>
+                    <div className={`absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-purple-400 to-pink-400 transition-all duration-300 ${
+                      currentPath === "/admin" ? "w-full" : "w-0 group-hover:w-full"
+                    }`}></div>
+                  </a>
+                )}
               </>
             )}
             

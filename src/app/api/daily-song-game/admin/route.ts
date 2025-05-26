@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import authOptions from "@/app/api/auth/[...nextauth]/authOptions";
 import { prisma } from "@/lib/prisma";
 
+const ADMIN_USER_ID = '31scr23lvn5o3erf52cyo7vmlgai';
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -10,8 +12,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // TODO: Add admin check here
-    // For now, any authenticated user can create games
+    // Check if user is admin
+    const userId = (session.user as any).id;
+    if (userId !== ADMIN_USER_ID) {
+      return NextResponse.json({ error: "Access denied - Admin only" }, { status: 403 });
+    }
 
     const body = await request.json();
     const { date, songId, songName, artistName, albumName, genre, releaseYear, popularity, durationMs, imageUrl } = body;
@@ -69,7 +74,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // TODO: Add admin check here
+    // Check if user is admin
+    const userId = (session.user as any).id;
+    if (userId !== ADMIN_USER_ID) {
+      return NextResponse.json({ error: "Access denied - Admin only" }, { status: 403 });
+    }
 
     const { searchParams } = new URL(request.url);
     const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 50);
@@ -111,7 +120,11 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // TODO: Add admin check here
+    // Check if user is admin
+    const userId = (session.user as any).id;
+    if (userId !== ADMIN_USER_ID) {
+      return NextResponse.json({ error: "Access denied - Admin only" }, { status: 403 });
+    }
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
