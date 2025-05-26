@@ -1,7 +1,7 @@
 interface SpotifyTrackData {
   id: string;
   name: string;
-  artists: Array<{ name: string }>;
+  artists: Array<{ name: string; id: string }>;
   album: {
     name: string;
     release_date: string;
@@ -71,9 +71,9 @@ export class SpotifyTrackService {
   }
 
   /**
-   * Fetch full track data from Spotify API
+   * Fetch full track data from Spotify API with genre from artist
    */
-  async getTrackData(trackId: string): Promise<FullTrackData> {
+  async getTrackData(trackId: string): Promise<FullTrackData & { genre?: string }> {
     try {
       const accessToken = await this.getAccessToken();
       
@@ -89,8 +89,26 @@ export class SpotifyTrackService {
 
       const track: SpotifyTrackData = await response.json();
 
-      // Extract genre from album or artist (requires additional API call for detailed info)
-      // For now, we'll leave genre empty and can enhance later
+      // Fetch genre from the first artist
+      let genre: string | undefined;
+      if (track.artists && track.artists.length > 0 && track.artists[0].id) {
+        try {
+          const artistId = track.artists[0].id;
+          
+          const artistDetailResponse = await fetch(`https://api.spotify.com/v1/artists/${artistId}`, {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`
+            }
+          });
+          
+          if (artistDetailResponse.ok) {
+            const artistData = await artistDetailResponse.json();
+            genre = artistData.genres && artistData.genres.length > 0 ? artistData.genres[0] : undefined;
+          }
+        } catch (genreError) {
+          console.warn(`Could not fetch genre for track ${trackId}:`, genreError);
+        }
+      }
       
       return {
         songId: track.id,
@@ -103,7 +121,8 @@ export class SpotifyTrackService {
         imageUrl: track.album.images[0]?.url || '',
         isExplicit: track.explicit,
         spotifyUrl: track.external_urls.spotify,
-        previewUrl: track.preview_url || undefined
+        previewUrl: track.preview_url || undefined,
+        genre
       };
     } catch (error) {
       console.error(`Error fetching track data for ${trackId}:`, error);

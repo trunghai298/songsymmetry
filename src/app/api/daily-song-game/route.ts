@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
         guessedSongName: spotifyData.songName,
         guessedArtistName: spotifyData.artistName,
         guessedAlbumName: spotifyData.albumName,
-        guessedGenre: null, // We'll add genre support later
+        guessedGenre: (spotifyData as any).genre, // Now includes genre from Spotify
         guessedReleaseYear: spotifyData.releaseYear,
         guessedPopularity: spotifyData.popularity,
         guessedDurationMs: spotifyData.durationMs,
@@ -148,16 +148,16 @@ export async function POST(request: NextRequest) {
     // Calculate comparison results
     const comparison = {
       songName: isCorrect ? 'correct' : 'incorrect',
-      artistName: attempt.guessedArtistName === todayGame.artistName ? 'correct' : 'incorrect',
-      albumName: attempt.guessedAlbumName === todayGame.albumName ? 'correct' : 'incorrect',
-      genre: attempt.guessedGenre === todayGame.genre ? 'correct' : 'incorrect',
-      releaseYear: attempt.guessedReleaseYear === todayGame.releaseYear ? 'correct' : 
-                   Math.abs((attempt.guessedReleaseYear || 0) - (todayGame.releaseYear || 0)) <= 2 ? 'close' : 'incorrect',
-      popularity: attempt.guessedPopularity === todayGame.popularity ? 'correct' :
-                  Math.abs((attempt.guessedPopularity || 0) - (todayGame.popularity || 0)) <= 10 ? 'close' : 'incorrect',
-      durationMs: attempt.guessedDurationMs === todayGame.durationMs ? 'correct' :
-                  Math.abs((attempt.guessedDurationMs || 0) - (todayGame.durationMs || 0)) <= 30000 ? 'close' : 'incorrect',
-      isExplicit: attempt.guessedIsExplicit === todayGame.isExplicit ? 'correct' : 'incorrect'
+      artistName: isCorrect ? 'correct' : (attempt.guessedArtistName === todayGame.artistName ? 'correct' : 'incorrect'),
+      albumName: isCorrect ? 'correct' : (attempt.guessedAlbumName === todayGame.albumName ? 'correct' : 'incorrect'),
+      genre: isCorrect ? 'correct' : (attempt.guessedGenre === todayGame.genre ? 'correct' : 'incorrect'),
+      releaseYear: isCorrect ? 'correct' : (attempt.guessedReleaseYear === todayGame.releaseYear ? 'correct' : 
+                   Math.abs((attempt.guessedReleaseYear || 0) - (todayGame.releaseYear || 0)) <= 2 ? 'close' : 'incorrect'),
+      popularity: isCorrect ? 'correct' : (attempt.guessedPopularity === todayGame.popularity ? 'correct' :
+                  Math.abs((attempt.guessedPopularity || 0) - (todayGame.popularity || 0)) <= 10 ? 'close' : 'incorrect'),
+      durationMs: isCorrect ? 'correct' : (attempt.guessedDurationMs === todayGame.durationMs ? 'correct' :
+                  Math.abs((attempt.guessedDurationMs || 0) - (todayGame.durationMs || 0)) <= 30000 ? 'close' : 'incorrect'),
+      isExplicit: isCorrect ? 'correct' : (attempt.guessedIsExplicit === todayGame.isExplicit ? 'correct' : 'incorrect')
     };
 
     return NextResponse.json({
