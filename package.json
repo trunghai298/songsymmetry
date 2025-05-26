@@ -39,10 +39,16 @@
     "docker:logs": "docker-compose logs -f",
     "docker:deploy": "./docker-deploy.sh",
     "docker:redis-test": "./docker-redis-test.sh",
-    "worker:start": "ts-node src/scripts/start-worker.ts",
+    "worker:start": "node worker.js",
     "worker:schedule:weekly": "curl -X POST http://localhost:3000/api/song-updates -H 'Content-Type: application/json' -d '{\"action\":\"schedule-weekly\"}'",
+    "worker:schedule:daily": "curl -X POST http://localhost:3000/api/song-updates -H 'Content-Type: application/json' -d '{\"action\":\"schedule-daily\"}'",
     "worker:update:all": "curl -X POST http://localhost:3000/api/song-updates -H 'Content-Type: application/json' -d '{\"action\":\"run-full-update\"}'",
     "worker:update:year": "curl -X POST http://localhost:3000/api/song-updates -H 'Content-Type: application/json' -d '{\"action\":\"update-year\",\"year\":\"2025\"}'",
+    "worker:update:daily": "curl -X POST http://localhost:3000/api/song-updates -H 'Content-Type: application/json' -d '{\"action\":\"run-daily\"}'",
+    "worker:update:weekly": "curl -X POST http://localhost:3000/api/song-updates -H 'Content-Type: application/json' -d '{\"action\":\"run-weekly\"}'",
+    "game:create:now": "curl -X POST http://localhost:3000/api/daily-game-jobs -H 'Content-Type: application/json' -d '{\"action\":\"create-now\"}'",
+    "game:schedule:daily": "curl -X POST http://localhost:3000/api/daily-game-jobs -H 'Content-Type: application/json' -d '{\"action\":\"schedule-daily\"}'",
+    "game:enable:auto": "curl -X POST http://localhost:3000/api/daily-game-jobs -H 'Content-Type: application/json' -d '{\"action\":\"enable-auto-schedule\"}'",
     "redis:test:specific": "node src/scripts/test-specific-redis.js"
   },
   "dependencies": {

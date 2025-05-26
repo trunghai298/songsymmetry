@@ -1,5 +1,5 @@
-import { startSongUpdateWorker, startDailyGameWorker } from '../lib/redis/workers.js';
-import { isRedisAvailable } from '../lib/redis/index.js';
+const { startSongUpdateWorker, startDailyGameWorker } = require('../lib/redis/workers.js');
+const { isRedisAvailable } = require('../lib/redis/index.js');
 
 // Start the worker process
 async function startWorker() {

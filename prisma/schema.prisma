@@ -131,7 +131,7 @@ model User {
 // Daily Song Guessing Game Models
 model DailySongGame {
   id           String                 @id @default(uuid())
-  date         DateTime               @unique // One game per day
+  date         DateTime               // Multiple games per day allowed
   songId       String                 // Spotify track ID
   songName     String
   artistName   String

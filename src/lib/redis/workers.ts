@@ -1,6 +1,6 @@
 import Bull from "bull";
 import { PrismaClient } from "@prisma/client";
-import { SONG_UPDATE_QUEUE } from "./queues";
+import { SONG_UPDATE_QUEUE, DAILY_GAME_QUEUE } from "./queues.js";
 
 // Initialize Prisma client
 const prisma = new PrismaClient();
@@ -87,7 +87,7 @@ async function processFullUpdate(job: Bull.Job) {
 
   try {
     // Import the multiYearImport function from the script
-    const { multiYearImport } = await import("../../scripts/multi-year-import");
+    const { multiYearImport } = await import("../../scripts/multi-year-import.js");
 
     // Log the start of the operation
     console.log("Starting full update of all years (2020-2025)...");
@@ -131,7 +131,7 @@ async function processYearUpdate(job: Bull.Job) {
 
   try {
     // Import the multiYearImport function from the script
-    const { multiYearImport } = await import("../../scripts/multi-year-import");
+    const { multiYearImport } = await import("../../scripts/multi-year-import.js");
 
     // Convert year string to number
     const yearNum = parseInt(year, 10);
@@ -175,7 +175,7 @@ async function processWeeklyUpdate(job: Bull.Job) {
 
   try {
     // Import the multiYearImport function from the script
-    const { multiYearImport } = await import("../../scripts/multi-year-import");
+    const { multiYearImport } = await import("../../scripts/multi-year-import.js");
 
     // Get current year
     const currentYear = new Date().getFullYear();
@@ -216,9 +216,7 @@ async function processDailyUpdate(job: Bull.Job) {
 
   try {
     // Import the fetchChartmastersData function directly
-    const { fetchChartmastersData } = await import(
-      "../../scripts/fetch-chartmasters"
-    );
+    const { fetchChartmastersData } = await import("../../scripts/fetch-chartmasters.js");
 
     // Get current year
     const currentYear = new Date().getFullYear();
@@ -324,6 +322,218 @@ async function processDailyUpdate(job: Bull.Job) {
   }
 }
 
-export default {
-  startSongUpdateWorker,
-};
+/**
+ * Creates and starts a worker to process daily game jobs
+ */
+export function startDailyGameWorker() {
+  console.log("Starting daily game worker with Redis...");
+
+  // Create the queue
+  const queue = new Bull(DAILY_GAME_QUEUE, {
+    redis: process.env.REDIS_URL,
+  });
+
+  // Process daily game jobs
+  queue.process(async (job) => {
+    console.log(`Processing daily game job ${job.id} with data: ${JSON.stringify(job.data)}`);
+    
+    try {
+      const jobData = job.data;
+      const type = jobData?.type;
+      console.log(`Daily game job type: ${type}`);
+      
+      switch (type) {
+        case "create-daily-games":
+          await processCreateDailyGames(job);
+          break;
+        case "create-single-game":
+          await processCreateSingleGame(job);
+          break;
+        default:
+          throw new Error(`Unknown daily game job type: ${type || 'undefined'}`);
+      }
+
+      console.log(`Daily game job ${job.id} completed successfully`);
+      return { success: true };
+    } catch (error) {
+      console.error(`Daily game job ${job.id} failed:`, error);
+      throw error; // Re-throw to let Bull handle the retry
+    }
+  });
+
+  // Set up event handlers
+  queue.on("completed", (job) => {
+    console.log(`Daily game job ${job.id} has completed`);
+  });
+
+  queue.on("failed", (job, error) => {
+    console.error(`Daily game job ${job?.id} has failed with error:`, error);
+  });
+
+  queue.on("error", (error) => {
+    console.error("Daily game queue error:", error);
+  });
+
+  console.log("Daily game worker started and listening for jobs");
+  return queue;
+}
+
+/**
+ * Process creating multiple daily games
+ */
+async function processCreateDailyGames(job: Bull.Job) {
+  const { date, count = 2 } = job.data;
+  console.log(`Creating ${count} daily games for date: ${date}`);
+
+  try {
+    const createdGames = [];
+
+    for (let i = 0; i < count; i++) {
+      const game = await createSingleDailyGame(date, i + 1);
+      if (game) {
+        createdGames.push(game);
+        console.log(`Created game ${i + 1}/${count}: ${game.songName} by ${game.artistName}`);
+      }
+    }
+
+    console.log(`Successfully created ${createdGames.length} daily games`);
+    return {
+      success: true,
+      gamesCreated: createdGames.length,
+      games: createdGames.map(g => ({ id: g.id, song: g.songName, artist: g.artistName }))
+    };
+  } catch (error) {
+    console.error("Error creating daily games:", error);
+    throw error;
+  }
+}
+
+/**
+ * Process creating a single daily game
+ */
+async function processCreateSingleGame(job: Bull.Job) {
+  const { date } = job.data;
+  console.log(`Creating single daily game for date: ${date || 'today'}`);
+
+  try {
+    const game = await createSingleDailyGame(date);
+    
+    if (game) {
+      console.log(`Successfully created daily game: ${game.songName} by ${game.artistName}`);
+      return {
+        success: true,
+        game: { id: game.id, song: game.songName, artist: game.artistName }
+      };
+    } else {
+      throw new Error("Failed to create daily game - no game returned");
+    }
+  } catch (error) {
+    console.error("Error creating single daily game:", error);
+    throw error;
+  }
+}
+
+/**
+ * Create a single daily game using the existing logic
+ */
+async function createSingleDailyGame(targetDate?: string, gameNumber?: number) {
+  const today = targetDate ? new Date(targetDate) : new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // If creating multiple games for the same day, adjust the time
+  if (gameNumber && gameNumber > 1) {
+    // For the second game, set it to noon (12:00)
+    today.setHours(12, 0, 0, 0); // 12:00 for the second game
+  } else {
+    // First game at midnight (00:00)
+    today.setHours(0, 0, 0, 0); // 00:00 for the first game
+  }
+
+  console.log(`Creating daily game for ${today.toISOString()}`);
+
+  // Check if game already exists for this exact date/time
+  const existingGame = await prisma.dailySongGame.findFirst({
+    where: { 
+      date: {
+        gte: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0),
+        lt: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1, 0, 0, 0)
+      }
+    }
+  });
+
+  // If we're creating multiple games, check the exact hour too
+  if (existingGame && gameNumber) {
+    const existingHour = existingGame.date.getHours();
+    const targetHour = today.getHours();
+    
+    if (existingHour === targetHour) {
+      console.log(`Game already exists for ${today.toISOString()}, skipping creation`);
+      return existingGame;
+    }
+  } else if (existingGame && !gameNumber) {
+    console.log(`Game already exists for ${today.toDateString()}, skipping creation`);
+    return existingGame;
+  }
+
+  // Get a random popular song with Spotify ID
+  const randomSong = await prisma.mostStreamedSongs.findFirst({
+    where: {
+      spotifyId: { not: null },
+      name: { not: null },
+      artist: { not: null }
+    },
+    skip: Math.floor(Math.random() * 500) // Random offset in top 500
+  });
+
+  if (!randomSong || !randomSong.spotifyId) {
+    throw new Error("No suitable songs found for daily game");
+  }
+
+  console.log(`Selected song: ${randomSong.name} by ${randomSong.artist}`);
+
+  // Fetch full track data from Spotify
+  const { spotifyTrackService } = await import("../spotify/trackService.js");
+  let spotifyData;
+  
+  try {
+    spotifyData = await spotifyTrackService.getTrackData(randomSong.spotifyId);
+    console.log("Successfully fetched complete Spotify data");
+  } catch (error) {
+    console.error("Failed to fetch Spotify data, using database fallback:", error);
+    
+    // Fallback to database data if Spotify fetch fails
+    spotifyData = {
+      songId: randomSong.spotifyId,
+      songName: randomSong.name!,
+      artistName: randomSong.artist!,
+      albumName: null,
+      releaseYear: randomSong.year ? parseInt(randomSong.year) : null,
+      popularity: null,
+      durationMs: null,
+      imageUrl: randomSong.thumbnail || null,
+      isExplicit: null
+    };
+  }
+
+  // Create the game with complete Spotify data
+  const game = await prisma.dailySongGame.create({
+    data: {
+      date: today,
+      songId: spotifyData.songId,
+      songName: spotifyData.songName,
+      artistName: spotifyData.artistName,
+      albumName: spotifyData.albumName,
+      genre: (spotifyData as any).genre || randomSong.genre,
+      releaseYear: spotifyData.releaseYear,
+      popularity: spotifyData.popularity,
+      durationMs: spotifyData.durationMs,
+      imageUrl: spotifyData.imageUrl || randomSong.thumbnail,
+      isExplicit: spotifyData.isExplicit
+    }
+  });
+
+  console.log(`✅ Created daily game: ${game.songName} by ${game.artistName} for ${game.date.toISOString()}`);
+  return game;
+}
+
+export { startSongUpdateWorker, startDailyGameWorker };

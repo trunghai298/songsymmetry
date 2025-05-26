@@ -3,12 +3,19 @@ import { isRedisAvailable } from './index';
 
 // Queue names
 export const SONG_UPDATE_QUEUE = 'song-updates';
+export const DAILY_GAME_QUEUE = 'daily-game';
 
 // Types for job data
 export type SongUpdateJobData = {
   type: 'update-all' | 'update-year' | 'update-weekly' | 'update-daily';
   year?: string; // Optional year for year-specific updates
   date?: string; // Optional date for date-specific updates
+};
+
+export type DailyGameJobData = {
+  type: 'create-daily-games' | 'create-single-game';
+  date?: string; // Target date for the games
+  count?: number; // Number of games to create (default: 2)
 };
 
 // Connection options for Bull
@@ -23,8 +30,9 @@ const connectionOptions = {
   }
 };
 
-// Create the song update queue
+// Create the queues
 let songUpdateQueue: Bull.Queue | null = null;
+let dailyGameQueue: Bull.Queue | null = null;
 
 /**
  * Initialize the queues if Redis is available
@@ -41,7 +49,10 @@ export async function initializeQueues() {
     // Create the song update queue
     songUpdateQueue = new Bull(SONG_UPDATE_QUEUE, connectionOptions);
     
-    console.log('Song update queue initialized with Redis');
+    // Create the daily game queue
+    dailyGameQueue = new Bull(DAILY_GAME_QUEUE, connectionOptions);
+    
+    console.log('Song update and daily game queues initialized with Redis');
     return true;
   } catch (error) {
     console.error('Failed to initialize queues:', error);
@@ -178,10 +189,117 @@ export async function scheduleDailyUpdate(): Promise<string | null> {
   }
 }
 
+/**
+ * Schedule daily game creation (2 games per day)
+ * @param targetDate Optional target date, defaults to tomorrow
+ * @returns Promise<string | null> Job ID if successful
+ */
+export async function scheduleDailyGameCreation(targetDate?: string): Promise<string | null> {
+  // Ensure queue is initialized
+  if (!dailyGameQueue) {
+    const initialized = await initializeQueues();
+    if (!initialized) return null;
+  }
+
+  try {
+    const date = targetDate || new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+    const job = await dailyGameQueue!.add({ 
+      type: 'create-daily-games',
+      date,
+      count: 2
+    });
+    
+    console.log(`Scheduled daily game creation for ${date}, job: ${job.id}`);
+    return String(job.id);
+  } catch (error) {
+    console.error('Failed to schedule daily game creation:', error);
+    return null;
+  }
+}
+
+/**
+ * Schedule automatic daily game creation with cron-like scheduling
+ * Creates 2 games every day at 00:00 and 12:00 (every 12 hours)
+ * @returns Promise<string[] | null> Job IDs if successful
+ */
+export async function scheduleAutomaticDailyGames(): Promise<string[] | null> {
+  // Ensure queue is initialized
+  if (!dailyGameQueue) {
+    const initialized = await initializeQueues();
+    if (!initialized) return null;
+  }
+
+  try {
+    const jobIds: string[] = [];
+
+    // Schedule first game at 00:00 (midnight) every day
+    const midnightJob = await dailyGameQueue!.add(
+      { 
+        type: 'create-single-game',
+        count: 1
+      },
+      {
+        repeat: {
+          cron: '0 0 * * *' // Every day at 00:00 (midnight)
+        }
+      }
+    );
+
+    // Schedule second game at 12:00 (noon) every day  
+    const noonJob = await dailyGameQueue!.add(
+      { 
+        type: 'create-single-game',
+        count: 1
+      },
+      {
+        repeat: {
+          cron: '0 12 * * *' // Every day at 12:00 (noon)
+        }
+      }
+    );
+    
+    jobIds.push(String(midnightJob.id), String(noonJob.id));
+    console.log(`Scheduled automatic daily games: midnight job ${midnightJob.id}, noon job ${noonJob.id}`);
+    return jobIds;
+  } catch (error) {
+    console.error('Failed to schedule automatic daily games:', error);
+    return null;
+  }
+}
+
+/**
+ * Create a single game immediately
+ * @returns Promise<string | null> Job ID if successful
+ */
+export async function createGameNow(): Promise<string | null> {
+  // Ensure queue is initialized
+  if (!dailyGameQueue) {
+    const initialized = await initializeQueues();
+    if (!initialized) return null;
+  }
+
+  try {
+    const job = await dailyGameQueue!.add({ 
+      type: 'create-single-game',
+      date: new Date().toISOString(),
+      count: 1
+    });
+    
+    console.log(`Scheduled immediate game creation, job: ${job.id}`);
+    return String(job.id);
+  } catch (error) {
+    console.error('Failed to schedule immediate game creation:', error);
+    return null;
+  }
+}
+
 export default {
   initializeQueues,
   scheduleFullUpdate,
   scheduleYearUpdate,
   scheduleWeeklyUpdate,
   scheduleDailyUpdate,
+  scheduleDailyGameCreation,
+  scheduleAutomaticDailyGames,
+  createGameNow,
 };

@@ -126,6 +126,68 @@ export async function POST(request: NextRequest) {
           );
         }
       }
+
+      case 'run-daily': {
+        try {
+          console.log('Running daily update immediately...');
+          const jobId = await scheduleDailyUpdate();
+          
+          if (!jobId) {
+            return NextResponse.json(
+              { status: 'error', message: 'Failed to run daily update - null job ID' },
+              { status: 500 }
+            );
+          }
+          
+          console.log(`Successfully scheduled immediate daily update with job ID: ${jobId}`);
+          return NextResponse.json({ 
+            status: 'ok', 
+            message: 'Daily update started immediately', 
+            jobId 
+          });
+        } catch (err) {
+          console.error('Error running daily update:', err);
+          return NextResponse.json(
+            { 
+              status: 'error', 
+              message: 'Exception in daily update execution',
+              error: err instanceof Error ? err.message : String(err)
+            },
+            { status: 500 }
+          );
+        }
+      }
+
+      case 'run-weekly': {
+        try {
+          console.log('Running weekly update immediately...');
+          const jobId = await scheduleWeeklyUpdate();
+          
+          if (!jobId) {
+            return NextResponse.json(
+              { status: 'error', message: 'Failed to run weekly update - null job ID' },
+              { status: 500 }
+            );
+          }
+          
+          console.log(`Successfully scheduled immediate weekly update with job ID: ${jobId}`);
+          return NextResponse.json({ 
+            status: 'ok', 
+            message: 'Weekly update started immediately', 
+            jobId 
+          });
+        } catch (err) {
+          console.error('Error running weekly update:', err);
+          return NextResponse.json(
+            { 
+              status: 'error', 
+              message: 'Exception in weekly update execution',
+              error: err instanceof Error ? err.message : String(err)
+            },
+            { status: 500 }
+          );
+        }
+      }
       
       default:
         return NextResponse.json(
