@@ -91,11 +91,16 @@ export default function AdminPage() {
         // Refresh the games list
         await fetchRecentGames();
       } else {
+        const errorMessage = data.error || "Failed to generate daily game";
+        const errorDetails = data.details ? ` (${data.details})` : "";
+        
         toast({
           title: "Error",
-          description: data.error || "Failed to generate daily game",
+          description: errorMessage + errorDetails,
           variant: "destructive",
         });
+        
+        console.error("API Error:", data);
       }
     } catch (error) {
       console.error("Error generating game:", error);
@@ -143,7 +148,8 @@ export default function AdminPage() {
           <div className="flex items-center justify-center min-h-[50vh]">
             <div className="text-center">
               <h1 className="text-2xl font-bold text-white mb-4">Access Denied</h1>
-              <p className="text-gray-400">You don&apos;t have permission to access the admin panel</p>
+              {/* eslint-disable-next-line react/no-unescaped-entities */}
+              <p className="text-gray-400">You don't have permission to access the admin panel</p>
               <div className="mt-6">
                 <Button
                   onClick={() => window.history.back()}
@@ -181,12 +187,13 @@ export default function AdminPage() {
             <p className="text-gray-300">Manage daily song games and system settings</p>
           </div>
 
-          {/* Today&apos;s Game Status */}
+          {/* Today's Game Status */}
           <Card className="bg-gray-800 border-gray-700 mb-8">
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-purple-400" />
-                Today&apos;s Game Status
+                {/* eslint-disable-next-line react/no-unescaped-entities */}
+                Today's Game Status
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -226,7 +233,8 @@ export default function AdminPage() {
                     </div>
                     <div className="flex-1">
                       <h3 className="text-white font-semibold">No Game Today</h3>
-                      <p className="text-gray-300">Generate today&apos;s daily song game</p>
+                      {/* eslint-disable-next-line react/no-unescaped-entities */}
+                      <p className="text-gray-300">Generate today's daily song game</p>
                     </div>
                   </div>
                   
@@ -236,7 +244,8 @@ export default function AdminPage() {
                     className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
                   >
                     <Play className="w-5 h-5" />
-                    {isGenerating ? "Generating..." : "Generate Today&apos;s Game"}
+                    {/* eslint-disable-next-line react/no-unescaped-entities */}
+                    {isGenerating ? "Generating..." : "Generate Today's Game"}
                   </Button>
                 </div>
               )}

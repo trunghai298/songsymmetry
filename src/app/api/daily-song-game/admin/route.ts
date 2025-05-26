@@ -141,6 +141,28 @@ export async function PUT(request: NextRequest) {
     }
 
     // Select a random popular song from the database
+    console.log("Looking for songs in mostStreamedSongs table...");
+    
+    // First check if we have any songs at all
+    const songCount = await prisma.mostStreamedSongs.count({
+      where: {
+        spotifyId: { not: null },
+        name: { not: null },
+        artist: { not: null }
+      }
+    });
+    
+    console.log(`Found ${songCount} suitable songs in database`);
+    
+    if (songCount === 0) {
+      return NextResponse.json({ 
+        error: "No suitable songs found in database. Please import song data first." 
+      }, { status: 404 });
+    }
+    
+    const randomOffset = Math.floor(Math.random() * Math.min(songCount, 1000));
+    console.log(`Using random offset: ${randomOffset}`);
+    
     const randomSong = await prisma.mostStreamedSongs.findFirst({
       where: {
         spotifyId: { not: null },
@@ -148,17 +170,18 @@ export async function PUT(request: NextRequest) {
         artist: { not: null }
       },
       orderBy: {
-        // Use stream count for weighted randomness
         streamCount: 'desc'
       },
-      skip: Math.floor(Math.random() * 1000) // Random offset in top 1000
+      skip: randomOffset
     });
 
     if (!randomSong) {
       return NextResponse.json({ 
-        error: "No suitable songs found in database" 
-      }, { status: 404 });
+        error: "Failed to select random song" 
+      }, { status: 500 });
     }
+    
+    console.log(`Selected song: ${randomSong.name} by ${randomSong.artist}`);
 
     // Create the game
     const game = await prisma.dailySongGame.create({
@@ -182,8 +205,19 @@ export async function PUT(request: NextRequest) {
     });
   } catch (error) {
     console.error("Error auto-generating daily song game:", error);
+    
+    // Provide more specific error information
+    let errorMessage = "Internal server error";
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    
     return NextResponse.json(
-      { error: "Internal server error" },
+      { 
+        error: "Failed to auto-generate game", 
+        details: errorMessage,
+        timestamp: new Date().toISOString()
+      },
       { status: 500 }
     );
   }
