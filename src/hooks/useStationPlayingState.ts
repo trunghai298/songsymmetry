@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useSocket } from '@/hooks/useSocket';
 import { usePlayer } from '@/hooks/usePlayer';
@@ -250,9 +250,11 @@ export function useStationPlayingState(stationId: string, station: Station | nul
     return () => clearInterval(interval);
   }, [stationId, fetchPlayingState, session, station, lastSocketUpdate, isConnected, pollingInterval, isStationOwner, isUserMember]);
 
-  // Listen for real-time Socket.IO updates
+  // Listen for real-time Socket.IO updates  
   useEffect(() => {
     if (!stationId) return;
+
+    console.log("🔄 useStationPlayingState effect running for stationId:", stationId);
 
     const unsubscribePlayingState = subscribe("station-playing-state", (data: any) => {
       if (data.stationId === stationId) {
@@ -275,9 +277,10 @@ export function useStationPlayingState(stationId: string, station: Station | nul
     });
 
     return () => {
+      console.log("🧹 useStationPlayingState cleanup for stationId:", stationId);
       unsubscribePlayingState();
     };
-  }, [stationId, subscribe]);
+  }, [stationId, subscribe]); // Now subscribe is stable due to useCallback
 
   // Initial fetch
   useEffect(() => {

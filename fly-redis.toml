@@ -5,7 +5,7 @@ primary_region = "sin"
   image = "redis/redis-stack-server:latest"
 
 [env]
-  REDIS_ARGS = "--requirepass ${REDIS_PASSWORD}"
+  REDIS_PASSWORD = "${REDIS_PASSWORD}"
 
 [[mounts]]
   source = "redis_data"

@@ -96,12 +96,94 @@ export const initSocketServer = (req: NextApiRequest, res: NextApiResponseWithSo
         });
       });
       
+      // Listen for track removal
+      socket.on('remove-track', (data: { stationId: string, userId: string, trackId: string }) => {
+        console.log(`User ${data.userId} removed track ${data.trackId} from station ${data.stationId}`);
+        
+        // Broadcast track removal to all users in this station
+        io.to(`station:${data.stationId}`).emit('track-removed', {
+          userId: data.userId,
+          trackId: data.trackId,
+          timestamp: new Date().toISOString()
+        });
+      });
+      
       // Listen for playback state changes from the station owner/DJ
       socket.on('playback-update', (data: { stationId: string, userId: string, state: any }) => {
         // Broadcast the playback state to all users in this station
         socket.to(`station:${data.stationId}`).emit('playback-updated', {
           userId: data.userId,
           state: data.state,
+          timestamp: new Date().toISOString()
+        });
+      });
+      
+      // Listen for station settings updates
+      socket.on('station-update', (data: { stationId: string, userId: string, updates: any }) => {
+        console.log(`User ${data.userId} updated station ${data.stationId} settings`);
+        
+        // Broadcast station updates to all users in this station
+        io.to(`station:${data.stationId}`).emit('station-updated', {
+          userId: data.userId,
+          updates: data.updates,
+          timestamp: new Date().toISOString()
+        });
+      });
+      
+      // Listen for user typing in chat (if chat feature exists)
+      socket.on('typing-start', (data: { stationId: string, userId: string, userName: string }) => {
+        // Broadcast typing indicator to others in station
+        socket.to(`station:${data.stationId}`).emit('user-typing', {
+          userId: data.userId,
+          userName: data.userName,
+          isTyping: true,
+          timestamp: new Date().toISOString()
+        });
+      });
+      
+      socket.on('typing-stop', (data: { stationId: string, userId: string }) => {
+        // Broadcast stop typing to others in station
+        socket.to(`station:${data.stationId}`).emit('user-typing', {
+          userId: data.userId,
+          isTyping: false,
+          timestamp: new Date().toISOString()
+        });
+      });
+      
+      // Listen for chat messages
+      socket.on('send-message', (data: { stationId: string, userId: string, userName: string, message: string }) => {
+        console.log(`User ${data.userId} sent message to station ${data.stationId}`);
+        
+        // Broadcast message to all users in this station
+        io.to(`station:${data.stationId}`).emit('new-message', {
+          userId: data.userId,
+          userName: data.userName,
+          message: data.message,
+          timestamp: new Date().toISOString()
+        });
+      });
+      
+      // Listen for track vote/like events
+      socket.on('vote-track', (data: { stationId: string, userId: string, trackId: string, vote: 'up' | 'down' }) => {
+        console.log(`User ${data.userId} voted ${data.vote} on track ${data.trackId} in station ${data.stationId}`);
+        
+        // Broadcast vote to all users in this station
+        io.to(`station:${data.stationId}`).emit('track-voted', {
+          userId: data.userId,
+          trackId: data.trackId,
+          vote: data.vote,
+          timestamp: new Date().toISOString()
+        });
+      });
+      
+      // Listen for queue position changes
+      socket.on('reorder-queue', (data: { stationId: string, userId: string, trackOrder: string[] }) => {
+        console.log(`User ${data.userId} reordered queue in station ${data.stationId}`);
+        
+        // Broadcast queue reorder to all users in this station
+        socket.to(`station:${data.stationId}`).emit('queue-reordered', {
+          userId: data.userId,
+          trackOrder: data.trackOrder,
           timestamp: new Date().toISOString()
         });
       });

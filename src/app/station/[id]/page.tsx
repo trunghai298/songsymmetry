@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Container from "../../components/core/Container";
@@ -18,6 +18,7 @@ import { getAuthUser } from "@/lib/session";
 import { useStationData, StationTrack } from "@/hooks/useStationData";
 import { useStationPlayingState } from "@/hooks/useStationPlayingState";
 import TrackList from "./components/TrackList";
+import StationChat from "./components/StationChat";
 import { setPlaylist } from "@/lib/redux/slices/playlistSlices";
 
 export default function StationDetailPage() {
@@ -55,6 +56,10 @@ export default function StationDetailPage() {
   const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
   const [debugShowAnimation, setDebugShowAnimation] = useState(false);
 
+  // Track whether we've joined the station to prevent multiple joins
+  const hasJoinedStationRef = useRef(false);
+  const currentStationIdRef = useRef<string | null>(null);
+
   // Socket connection
   const { isConnected, joinStation, leaveStation, addTrack, subscribe } =
     useSocket();
@@ -66,14 +71,39 @@ export default function StationDetailPage() {
 
   // Join the station's socket room when connected
   useEffect(() => {
+    console.log("🔄 Station socket effect running:", {
+      isConnected,
+      hasSession: !!session,
+      hasStation: !!station,
+      stationId,
+      hasJoined: hasJoinedStationRef.current,
+      currentStationId: currentStationIdRef.current
+    });
+
     if (isConnected && session && station) {
       const user = getAuthUser(session);
       if (!user?.id) return;
 
+      // Check if we've already joined this station
+      if (hasJoinedStationRef.current && currentStationIdRef.current === stationId) {
+        console.log("⚠️ Already joined station:", stationId, "- skipping");
+        return;
+      }
+
+      // If we're switching stations, leave the previous one first
+      if (hasJoinedStationRef.current && currentStationIdRef.current && currentStationIdRef.current !== stationId) {
+        console.log("🔄 Switching stations - leaving:", currentStationIdRef.current);
+        leaveStation(currentStationIdRef.current, user.id);
+      }
+
+      console.log("✅ Joining station:", stationId, "for user:", user.id);
+      hasJoinedStationRef.current = true;
+      currentStationIdRef.current = stationId;
       joinStation(stationId, user.id);
 
       // Listen for user joined events
       const unsubscribeUserJoined = subscribe("user-joined", (data: any) => {
+        console.log("🔥 STATION PAGE: Received user-joined event:", data);
         toast({
           title: "User joined",
           description: `A new listener has joined the station`,
@@ -83,6 +113,7 @@ export default function StationDetailPage() {
 
       // Listen for user left events
       const unsubscribeUserLeft = subscribe("user-left", (data: any) => {
+        console.log("🔥 STATION PAGE: Received user-left event:", data);
         toast({
           title: "User left",
           description: `A listener has left the station`,
@@ -120,25 +151,95 @@ export default function StationDetailPage() {
         }
       });
 
-      // Leave the room when component unmounts
+      // Listen for track removed events
+      const unsubscribeTrackRemoved = subscribe("track-removed", (data: any) => {
+        toast({
+          title: "Track removed",
+          description: "A track was removed from the station",
+          variant: "default",
+        });
+
+        setStation((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            tracks: prev.tracks.filter((t) => t.id !== data.trackId),
+            _count: {
+              ...prev._count,
+              tracks: Math.max(0, prev._count.tracks - 1),
+            },
+          };
+        });
+      });
+
+      // Listen for station updates
+      const unsubscribeStationUpdated = subscribe("station-updated", (data: any) => {
+        toast({
+          title: "Station updated",
+          description: "Station settings have been updated",
+          variant: "default",
+        });
+
+        setStation((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            ...data.updates,
+          };
+        });
+      });
+
+      // Listen for playback updates
+      const unsubscribePlaybackUpdated = subscribe("playback-updated", (data: any) => {
+        console.log("Received playback update:", data);
+        // Handle playback state synchronization here
+      });
+
+      // Store cleanup functions
+      const cleanupFunctions = [
+        unsubscribeUserJoined,
+        unsubscribeUserLeft,
+        unsubscribeTrackAdded,
+        unsubscribeTrackRemoved,
+        unsubscribeStationUpdated,
+        unsubscribePlaybackUpdated
+      ];
+
+      // Return cleanup function
       return () => {
-        leaveStation(stationId, user.id);
-        unsubscribeUserJoined();
-        unsubscribeUserLeft();
-        unsubscribeTrackAdded();
+        console.log("🧹 Station socket effect cleanup");
+        cleanupFunctions.forEach(cleanup => cleanup());
       };
+    } else {
+      console.log("❌ Not joining station - missing requirements");
+      return () => {}; // Empty cleanup if not joining
     }
   }, [
     isConnected,
     session,
     station,
     stationId,
-    joinStation,
-    leaveStation,
-    subscribe,
+    joinStation, // Now memoized
+    leaveStation, // Now memoized  
+    subscribe, // Now memoized
     toast,
     setStation,
   ]);
+
+  // Cleanup on component unmount
+  useEffect(() => {
+    return () => {
+      if (hasJoinedStationRef.current && currentStationIdRef.current) {
+        const user = getAuthUser(session);
+        if (user?.id) {
+          console.log("🧹 Component unmounting - leaving station:", currentStationIdRef.current);
+          leaveStation(currentStationIdRef.current, user.id);
+          hasJoinedStationRef.current = false;
+          currentStationIdRef.current = null;
+        }
+      }
+    };
+  }, []); // Empty deps - only run on unmount
 
   const handleJoinStation = async () => {
     if (!session?.user) {
@@ -932,159 +1033,180 @@ export default function StationDetailPage() {
           </div>
         </div>
 
-        {/* Station content */}
-        <Tabs defaultValue="tracks" className="w-full mt-2">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-            <TabsList className="bg-gray-800/60 p-1">
-              <TabsTrigger value="tracks">Tracks</TabsTrigger>
-              <TabsTrigger value="members">Members</TabsTrigger>
-            </TabsList>
+        {/* Main content with left/right panels on large screens */}
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Left Panel - Tracks & Members */}
+          <div className="flex-1 lg:w-2/3">
+            <Tabs defaultValue="tracks" className="w-full">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                <TabsList className="bg-gray-800/60 p-1">
+                  <TabsTrigger value="tracks">Tracks</TabsTrigger>
+                  <TabsTrigger value="members">Members</TabsTrigger>
+                </TabsList>
 
-            <div className="flex flex-col sm:flex-row gap-2 lg:gap-3 w-full sm:w-auto">
-              {!isUserMember() ? (
-                <>
-                  <Button
-                    onClick={handlePlayStation}
-                    disabled={!station.tracks.length}
-                    className="flex-1 sm:w-auto bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 disabled:opacity-50"
-                  >
-                    <i className="bi bi-play-fill mr-2"></i>
-                    <span className="hidden sm:inline">Play Station</span>
-                    <span className="sm:hidden">Play</span>
-                  </Button>
-                  <Button
-                    onClick={handleJoinStation}
-                    disabled={isJoining}
-                    className="flex-1 sm:w-auto bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 disabled:opacity-50"
-                  >
-                    {isJoining ? (
-                      <>
-                        <i className="bi bi-arrow-repeat animate-spin mr-2"></i>
-                        <span className="hidden sm:inline">Joining...</span>
-                        <span className="sm:hidden">Join</span>
-                      </>
-                    ) : (
-                      <>
-                        <i className="bi bi-person-plus mr-2"></i>
-                        <span className="hidden sm:inline">Join Station</span>
-                        <span className="sm:hidden">Join</span>
-                      </>
-                    )}
-                  </Button>
-                </>
-              ) : !isStationOwner() ? (
-                <>
-                  <Button
-                    onClick={handlePlayStation}
-                    disabled={!station.tracks.length}
-                    className="flex-1 sm:w-auto bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 disabled:opacity-50"
-                  >
-                    <i className="bi bi-play-fill mr-2"></i>
-                    <span className="hidden sm:inline">Play Station</span>
-                    <span className="sm:hidden">Play</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={handleLeaveStation}
-                    disabled={isLeaving}
-                    className="flex-1 sm:w-32 lg:w-36 border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white disabled:opacity-50"
-                  >
-                    {isLeaving ? (
-                      <>
-                        <i className="bi bi-arrow-repeat animate-spin mr-2"></i>
-                        <span className="hidden sm:inline">Leaving...</span>
-                        <span className="sm:hidden">Leave</span>
-                      </>
-                    ) : (
-                      <>
-                        <i className="bi bi-person-dash mr-2"></i>
-                        <span className="hidden sm:inline">Leave Station</span>
-                        <span className="sm:hidden">Leave</span>
-                      </>
-                    )}
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button
-                    onClick={handlePlayStation}
-                    disabled={!station.tracks.length}
-                    className="flex-1 sm:w-auto bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 disabled:opacity-50"
-                  >
-                    <i className="bi bi-play-fill mr-2"></i>
-                    <span className="hidden sm:inline">Play Station</span>
-                    <span className="sm:hidden">Play</span>
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    onClick={handleDeleteStation}
-                    disabled={isDeleting}
-                    className="flex-1 sm:w-32 lg:w-36 disabled:opacity-50"
-                  >
-                    {isDeleting ? (
-                      <>
-                        <i className="bi bi-arrow-repeat animate-spin mr-2"></i>
-                        <span className="hidden sm:inline">Deleting...</span>
-                        <span className="sm:hidden">Delete</span>
-                      </>
-                    ) : (
-                      <>
-                        <i className="bi bi-trash mr-2"></i>
-                        <span className="hidden sm:inline">Delete Station</span>
-                        <span className="sm:hidden">Delete</span>
-                      </>
-                    )}
-                  </Button>
-                </>
-              )}
-            </div>
+                <div className="flex flex-col sm:flex-row gap-2 lg:gap-3 w-full sm:w-auto">
+                  {!isUserMember() ? (
+                    <>
+                      <Button
+                        onClick={handlePlayStation}
+                        disabled={!station.tracks.length}
+                        className="flex-1 sm:w-auto bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 disabled:opacity-50"
+                      >
+                        <i className="bi bi-play-fill mr-2"></i>
+                        <span className="hidden sm:inline">Play Station</span>
+                        <span className="sm:hidden">Play</span>
+                      </Button>
+                      <Button
+                        onClick={handleJoinStation}
+                        disabled={isJoining}
+                        className="flex-1 sm:w-auto bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 disabled:opacity-50"
+                      >
+                        {isJoining ? (
+                          <>
+                            <i className="bi bi-arrow-repeat animate-spin mr-2"></i>
+                            <span className="hidden sm:inline">Joining...</span>
+                            <span className="sm:hidden">Join</span>
+                          </>
+                        ) : (
+                          <>
+                            <i className="bi bi-person-plus mr-2"></i>
+                            <span className="hidden sm:inline">Join Station</span>
+                            <span className="sm:hidden">Join</span>
+                          </>
+                        )}
+                      </Button>
+                    </>
+                  ) : !isStationOwner() ? (
+                    <>
+                      <Button
+                        onClick={handlePlayStation}
+                        disabled={!station.tracks.length}
+                        className="flex-1 sm:w-auto bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 disabled:opacity-50"
+                      >
+                        <i className="bi bi-play-fill mr-2"></i>
+                        <span className="hidden sm:inline">Play Station</span>
+                        <span className="sm:hidden">Play</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={handleLeaveStation}
+                        disabled={isLeaving}
+                        className="flex-1 sm:w-32 lg:w-36 border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white disabled:opacity-50"
+                      >
+                        {isLeaving ? (
+                          <>
+                            <i className="bi bi-arrow-repeat animate-spin mr-2"></i>
+                            <span className="hidden sm:inline">Leaving...</span>
+                            <span className="sm:hidden">Leave</span>
+                          </>
+                        ) : (
+                          <>
+                            <i className="bi bi-person-dash mr-2"></i>
+                            <span className="hidden sm:inline">Leave Station</span>
+                            <span className="sm:hidden">Leave</span>
+                          </>
+                        )}
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        onClick={handlePlayStation}
+                        disabled={!station.tracks.length}
+                        className="flex-1 sm:w-auto bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 disabled:opacity-50"
+                      >
+                        <i className="bi bi-play-fill mr-2"></i>
+                        <span className="hidden sm:inline">Play Station</span>
+                        <span className="sm:hidden">Play</span>
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        onClick={handleDeleteStation}
+                        disabled={isDeleting}
+                        className="flex-1 sm:w-32 lg:w-36 disabled:opacity-50"
+                      >
+                        {isDeleting ? (
+                          <>
+                            <i className="bi bi-arrow-repeat animate-spin mr-2"></i>
+                            <span className="hidden sm:inline">Deleting...</span>
+                            <span className="sm:hidden">Delete</span>
+                          </>
+                        ) : (
+                          <>
+                            <i className="bi bi-trash mr-2"></i>
+                            <span className="hidden sm:inline">Delete Station</span>
+                            <span className="sm:hidden">Delete</span>
+                          </>
+                        )}
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <TabsContent value="tracks" className="space-y-4 mt-2">
+                <TrackList
+                  tracks={station.tracks}
+                  isTrackCurrentlyPlaying={isTrackCurrentlyPlaying}
+                  onPlayTrack={handlePlayTrack}
+                  playingTrackId={playingTrackId}
+                  debugShowAnimation={debugShowAnimation}
+                  formatDate={formatDate}
+                />
+              </TabsContent>
+
+              <TabsContent value="members" className="space-y-4 mt-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {station.members.map((member) => (
+                    <Card
+                      key={member.id}
+                      className="p-4 flex items-center gap-3 bg-gray-800/70 border-gray-700 hover:bg-gray-700/80 transition-colors"
+                    >
+                      <Avatar className="h-10 w-10 ring-2 ring-offset-2 ring-offset-gray-800 ring-purple-500/50">
+                        <AvatarImage src={member.user.image || undefined} />
+                        <AvatarFallback>
+                          {member.user.name?.charAt(0) || "U"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium text-gray-300">
+                          {member.user.name}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Joined {formatDate(member.joinedAt)}
+                        </p>
+                      </div>
+                      {member.userId === station.owner.id && (
+                        <Badge
+                          variant="secondary"
+                          className="ml-auto bg-purple-600 text-white hover:bg-purple-700"
+                        >
+                          Owner
+                        </Badge>
+                      )}
+                    </Card>
+                  ))}
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
 
-          <TabsContent value="tracks" className="space-y-4 mt-2">
-            <TrackList
-              tracks={station.tracks}
-              isTrackCurrentlyPlaying={isTrackCurrentlyPlaying}
-              onPlayTrack={handlePlayTrack}
-              playingTrackId={playingTrackId}
-              debugShowAnimation={debugShowAnimation}
-              formatDate={formatDate}
-            />
-          </TabsContent>
-
-          <TabsContent value="members" className="space-y-4 mt-2">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {station.members.map((member) => (
-                <Card
-                  key={member.id}
-                  className="p-4 flex items-center gap-3 bg-gray-800/70 border-gray-700 hover:bg-gray-700/80 transition-colors"
-                >
-                  <Avatar className="h-10 w-10 ring-2 ring-offset-2 ring-offset-gray-800 ring-purple-500/50">
-                    <AvatarImage src={member.user.image || undefined} />
-                    <AvatarFallback>
-                      {member.user.name?.charAt(0) || "U"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-medium text-gray-300">
-                      {member.user.name}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Joined {formatDate(member.joinedAt)}
-                    </p>
-                  </div>
-                  {member.userId === station.owner.id && (
-                    <Badge
-                      variant="secondary"
-                      className="ml-auto bg-purple-600 text-white hover:bg-purple-700"
-                    >
-                      Owner
-                    </Badge>
-                  )}
-                </Card>
-              ))}
+          {/* Right Panel - Station Chat (only for members on lg+ screens) */}
+          {isUserMember() && (
+            <div className="hidden lg:block w-full lg:w-1/3">
+              <div className="sticky top-6">
+                <StationChat stationId={stationId} variant="panel" />
+              </div>
             </div>
-          </TabsContent>
-        </Tabs>
+          )}
+        </div>
+
+        {/* Floating Chat for smaller screens */}
+        {isUserMember() && (
+          <div className="lg:hidden">
+            <StationChat stationId={stationId} variant="floating" />
+          </div>
+        )}
       </div>
     </Container>
   );

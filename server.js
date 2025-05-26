@@ -124,6 +124,42 @@ app.prepare().then(() => {
         timestamp: new Date().toISOString()
       });
     });
+
+    // Chat events
+    socket.on('send-message', (data) => {
+      console.log(`User ${data.userId} sent message to station ${data.stationId}: ${data.message}`);
+      
+      // Broadcast message to all users in this station
+      io.to(`station:${data.stationId}`).emit('new-message', {
+        userId: data.userId,
+        userName: data.userName,
+        message: data.message,
+        timestamp: new Date().toISOString()
+      });
+    });
+
+    socket.on('typing-start', (data) => {
+      console.log(`User ${data.userId} started typing in station ${data.stationId}`);
+      
+      // Broadcast typing indicator to others in station (excluding sender)
+      socket.to(`station:${data.stationId}`).emit('user-typing', {
+        userId: data.userId,
+        userName: data.userName,
+        isTyping: true,
+        timestamp: new Date().toISOString()
+      });
+    });
+
+    socket.on('typing-stop', (data) => {
+      console.log(`User ${data.userId} stopped typing in station ${data.stationId}`);
+      
+      // Broadcast stop typing to others in station (excluding sender)
+      socket.to(`station:${data.stationId}`).emit('user-typing', {
+        userId: data.userId,
+        isTyping: false,
+        timestamp: new Date().toISOString()
+      });
+    });
     
     socket.on('disconnect', () => {
       console.log(`Socket disconnected: ${socket.id}`);
