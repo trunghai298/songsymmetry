@@ -257,38 +257,38 @@ function Wrapped() {
     <Container>
       <LoginModal {...authModalProps} />
       
-      <div className="min-h-screen py-8">
+      <div className="min-h-screen py-4 sm:py-8 px-4 sm:px-0">
         {/* Header */}
-        <div className="text-center mb-12">
+        <div className="text-center mb-8 sm:mb-12">
           <div className="relative inline-block">
-            <h1 className="text-6xl font-bold bg-gradient-to-r from-spotify-green via-purple-400 to-pink-400 bg-clip-text text-transparent mb-4">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold bg-gradient-to-r from-spotify-green via-purple-400 to-pink-400 bg-clip-text text-transparent mb-4 leading-tight">
               Your 2024 Wrapped
             </h1>
-            <div className="absolute -top-2 -right-2">
-              <Sparkles className="w-8 h-8 text-yellow-400 animate-pulse" />
+            <div className="absolute -top-1 sm:-top-2 -right-1 sm:-right-2">
+              <Sparkles className="w-6 h-6 sm:w-8 sm:h-8 text-yellow-400 animate-pulse" />
             </div>
           </div>
-          <p className="text-xl text-gray-300 max-w-2xl mx-auto">
+          <p className="text-base sm:text-lg md:text-xl text-gray-300 max-w-2xl mx-auto px-4">
             Your year in music, powered by your Spotify listening data
           </p>
         </div>
 
         {/* Time Range Selector */}
-        <div className="flex justify-center mb-8">
+        <div className="flex justify-center mb-6 sm:mb-8 px-4">
           <Tabs value={selectedTimeRange} onValueChange={(value) => setSelectedTimeRange(value as TimeRangeType)}>
-            <TabsList className="bg-gray-800 border-gray-600">
+            <TabsList className="bg-gray-800 border-gray-600 grid grid-cols-2 sm:grid-cols-4 w-full max-w-2xl h-auto p-1">
               {Object.entries(timeRangeLabels).map(([key, label]) => (
                 <TabsTrigger 
                   key={key} 
                   value={key}
-                  className={`data-[state=active]:font-semibold text-gray-300 hover:text-white transition-colors ${
+                  className={`data-[state=active]:font-semibold text-gray-300 hover:text-white transition-colors text-xs sm:text-sm py-2 px-1 sm:px-3 ${
                     key === 'time_machine' 
                       ? 'data-[state=active]:bg-purple-600 data-[state=active]:text-white' 
                       : 'data-[state=active]:bg-spotify-green data-[state=active]:text-black'
                   }`}
                 >
-                  {key === 'time_machine' && <History className="w-4 h-4 mr-2" />}
-                  {label}
+                  {key === 'time_machine' && <History className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />}
+                  <span className="truncate">{label}</span>
                 </TabsTrigger>
               ))}
             </TabsList>
@@ -605,36 +605,36 @@ function Wrapped() {
           <div className="space-y-8">
             {/* Stats Overview */}
             {stats && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
                 <Card className="bg-gradient-to-br from-spotify-green to-green-600 border-0 text-black shadow-lg">
-                  <CardContent className="p-6 text-center">
-                    <Clock className="w-12 h-12 mx-auto mb-4 text-black" />
-                    <div className="text-3xl font-bold mb-2 text-black">{stats.totalMinutes.toLocaleString()}</div>
-                    <div className="text-sm font-medium text-black/80">Minutes Listened</div>
+                  <CardContent className="p-4 sm:p-6 text-center">
+                    <Clock className="w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-2 sm:mb-4 text-black" />
+                    <div className="text-xl sm:text-2xl md:text-3xl font-bold mb-1 sm:mb-2 text-black">{stats.totalMinutes.toLocaleString()}</div>
+                    <div className="text-xs sm:text-sm font-medium text-black/80">Minutes Listened</div>
                   </CardContent>
                 </Card>
                 
                 <Card className="bg-gradient-to-br from-purple-500 to-purple-700 border-0 text-white shadow-lg">
-                  <CardContent className="p-6 text-center">
-                    <TrendingUp className="w-12 h-12 mx-auto mb-4 text-white" />
-                    <div className="text-3xl font-bold mb-2 text-white">{stats.diversityScore}%</div>
-                    <div className="text-sm font-medium text-white/90">Music Diversity</div>
+                  <CardContent className="p-4 sm:p-6 text-center">
+                    <TrendingUp className="w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-2 sm:mb-4 text-white" />
+                    <div className="text-xl sm:text-2xl md:text-3xl font-bold mb-1 sm:mb-2 text-white">{stats.diversityScore}%</div>
+                    <div className="text-xs sm:text-sm font-medium text-white/90">Music Diversity</div>
                   </CardContent>
                 </Card>
                 
                 <Card className="bg-gradient-to-br from-pink-500 to-pink-700 border-0 text-white shadow-lg">
-                  <CardContent className="p-6 text-center">
-                    <Calendar className="w-12 h-12 mx-auto mb-4 text-white" />
-                    <div className="text-3xl font-bold mb-2 text-white">{stats.topDecade}</div>
-                    <div className="text-sm font-medium text-white/90">Favorite Decade</div>
+                  <CardContent className="p-4 sm:p-6 text-center">
+                    <Calendar className="w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-2 sm:mb-4 text-white" />
+                    <div className="text-xl sm:text-2xl md:text-3xl font-bold mb-1 sm:mb-2 text-white">{stats.topDecade}</div>
+                    <div className="text-xs sm:text-sm font-medium text-white/90">Favorite Decade</div>
                   </CardContent>
                 </Card>
                 
                 <Card className="bg-gradient-to-br from-blue-500 to-blue-700 border-0 text-white shadow-lg">
-                  <CardContent className="p-6 text-center">
-                    <Zap className="w-12 h-12 mx-auto mb-4 text-white" />
-                    <div className="text-3xl font-bold mb-2 text-white">{stats.energyLevel}</div>
-                    <div className="text-sm font-medium text-white/90">Energy Level</div>
+                  <CardContent className="p-4 sm:p-6 text-center">
+                    <Zap className="w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-2 sm:mb-4 text-white" />
+                    <div className="text-xl sm:text-2xl md:text-3xl font-bold mb-1 sm:mb-2 text-white">{stats.energyLevel}</div>
+                    <div className="text-xs sm:text-sm font-medium text-white/90">Energy Level</div>
                   </CardContent>
                 </Card>
               </div>
@@ -642,64 +642,64 @@ function Wrapped() {
 
 
             {/* Main Content */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
               {/* Top Tracks */}
               <Card className="bg-gray-800 border-gray-700">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-6">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 gap-3">
                     <div className="flex items-center gap-3">
-                      <Music className="w-6 h-6 text-spotify-green" />
-                      <h2 className="text-2xl font-bold text-white">Your Top Songs</h2>
+                      <Music className="w-5 h-5 sm:w-6 sm:h-6 text-spotify-green" />
+                      <h2 className="text-xl sm:text-2xl font-bold text-white">Your Top Songs</h2>
                     </div>
                     
                     <Button
                       size="sm"
                       onClick={() => playAllTracks()}
-                      className="bg-spotify-green hover:bg-spotify-green/90 text-black font-semibold px-4 py-2 rounded-full"
+                      className="bg-spotify-green hover:bg-spotify-green/90 text-black font-semibold px-3 sm:px-4 py-2 rounded-full text-sm w-fit"
                     >
-                      <Play className="w-4 h-4 mr-2" />
+                      <Play className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                       Play All
                     </Button>
                   </div>
                   
-                  <div className="space-y-3 transition-all duration-300">
+                  <div className="space-y-2 sm:space-y-3 transition-all duration-300">
                     {topTracks?.items.slice(0, 10).map((track, index) => (
                       <div 
                         key={track.id}
-                        className="flex items-center gap-4 p-3 rounded-lg hover:bg-gray-700 transition-colors group"
+                        className="flex items-center gap-2 sm:gap-4 p-2 sm:p-3 rounded-lg hover:bg-gray-700 transition-colors group"
                       >
                         <div className="flex-shrink-0 relative">
                           <img 
                             src={track.album.images[0]?.url || ''} 
                             alt={track.name}
-                            className="w-12 h-12 rounded-md"
+                            className="w-10 h-10 sm:w-12 sm:h-12 rounded-md"
                           />
                         </div>
                         
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-spotify-green font-bold text-lg">#{index + 1}</span>
+                          <div className="flex items-start sm:items-center gap-2">
+                            <span className="text-spotify-green font-bold text-sm sm:text-lg flex-shrink-0">#{index + 1}</span>
                             <div className="min-w-0 flex-1">
-                              <p className="font-semibold text-white truncate">{track.name}</p>
-                              <p className="text-gray-300 text-sm truncate">
+                              <p className="font-semibold text-white truncate text-sm sm:text-base">{track.name}</p>
+                              <p className="text-gray-300 text-xs sm:text-sm truncate">
                                 {track.artists.map(a => a.name).join(', ')}
                               </p>
                             </div>
                           </div>
                         </div>
                         
-                        <div className="flex items-center gap-3">
-                          <Badge variant="outline" className="text-xs border-gray-500 text-gray-300">
-                            {Math.round(track.popularity)}% popular
+                        <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1 sm:gap-3">
+                          <Badge variant="outline" className="text-xs border-gray-500 text-gray-300 hidden sm:inline-flex">
+                            {Math.round(track.popularity)}%
                           </Badge>
                           
                           <Button
                             size="sm"
                             onClick={() => playTrack(track)}
-                            className="bg-spotify-green hover:bg-spotify-green/90 text-black font-semibold px-3 py-1 rounded-full transition-all duration-200 opacity-0 group-hover:opacity-100"
+                            className="bg-spotify-green hover:bg-spotify-green/90 text-black font-semibold px-2 sm:px-3 py-1 rounded-full transition-all duration-200 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-xs sm:text-sm"
                           >
-                            <Play className="w-4 h-4 mr-1" />
-                            Play
+                            <Play className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                            <span className="hidden sm:inline">Play</span>
                           </Button>
                         </div>
                       </div>
@@ -724,29 +724,29 @@ function Wrapped() {
 
               {/* Top Artists */}
               <Card className="bg-gray-800 border-gray-700">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-3 mb-6">
-                    <User className="w-6 h-6 text-spotify-green" />
-                    <h2 className="text-2xl font-bold text-white">Your Top Artists</h2>
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex items-center gap-3 mb-4 sm:mb-6">
+                    <User className="w-5 h-5 sm:w-6 sm:h-6 text-spotify-green" />
+                    <h2 className="text-xl sm:text-2xl font-bold text-white">Your Top Artists</h2>
                   </div>
                   
-                  <div className="space-y-4">
+                  <div className="space-y-3 sm:space-y-4">
                     {topArtists?.items.slice(0, 8).map((artist, index) => (
-                      <div key={artist.id} className="flex items-center gap-4 p-3 rounded-lg hover:bg-gray-700 transition-colors">
+                      <div key={artist.id} className="flex items-center gap-3 sm:gap-4 p-2 sm:p-3 rounded-lg hover:bg-gray-700 transition-colors">
                         <img 
                           src={artist.images[0]?.url || ''} 
                           alt={artist.name}
-                          className="w-16 h-16 rounded-full object-cover"
+                          className="w-12 h-12 sm:w-16 sm:h-16 rounded-full object-cover flex-shrink-0"
                         />
                         
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-spotify-green font-bold text-lg">#{index + 1}</span>
-                            <p className="font-semibold text-white">{artist.name}</p>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1 sm:mb-2">
+                            <span className="text-spotify-green font-bold text-sm sm:text-lg flex-shrink-0">#{index + 1}</span>
+                            <p className="font-semibold text-white text-sm sm:text-base truncate">{artist.name}</p>
                           </div>
                           
                           <div className="flex flex-wrap gap-1">
-                            {artist.genres.slice(0, 3).map((genre, i) => (
+                            {artist.genres.slice(0, 2).map((genre, i) => (
                               <Badge key={i} variant="secondary" className="text-xs bg-gray-600 text-gray-100 border-0">
                                 {genre}
                               </Badge>
@@ -754,9 +754,9 @@ function Wrapped() {
                           </div>
                         </div>
                         
-                        <div className="text-right">
+                        <div className="text-right hidden sm:block">
                           <Badge variant="outline" className="text-xs border-gray-500 text-gray-300">
-                            {artist.popularity}% popular
+                            {artist.popularity}%
                           </Badge>
                         </div>
                       </div>
@@ -782,25 +782,25 @@ function Wrapped() {
 
             {/* Genre & Audio Features */}
             {stats && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
                 {/* Top Genres */}
                 <Card className="bg-gray-800 border-gray-700">
-                  <CardContent className="p-6">
-                    <div className="flex items-center gap-3 mb-6">
-                      <BarChart3 className="w-6 h-6 text-spotify-green" />
-                      <h2 className="text-2xl font-bold text-white">Your Top Genres</h2>
+                  <CardContent className="p-4 sm:p-6">
+                    <div className="flex items-center gap-3 mb-4 sm:mb-6">
+                      <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-spotify-green" />
+                      <h2 className="text-xl sm:text-2xl font-bold text-white">Your Top Genres</h2>
                     </div>
                     
-                    <div className="space-y-4">
+                    <div className="space-y-3 sm:space-y-4">
                       {stats.topGenres.map((genre, index) => (
                         <div key={genre.name} className="space-y-2">
                           <div className="flex justify-between items-center">
-                            <span className="text-gray-100 font-medium capitalize">{genre.name}</span>
-                            <span className="text-spotify-green font-bold">{genre.percentage}%</span>
+                            <span className="text-gray-100 font-medium capitalize text-sm sm:text-base truncate pr-2">{genre.name}</span>
+                            <span className="text-spotify-green font-bold text-sm sm:text-base flex-shrink-0">{genre.percentage}%</span>
                           </div>
-                          <div className="w-full bg-gray-600 rounded-full h-3">
+                          <div className="w-full bg-gray-600 rounded-full h-2 sm:h-3">
                             <div 
-                              className="bg-gradient-to-r from-spotify-green to-green-400 h-3 rounded-full transition-all duration-1000"
+                              className="bg-gradient-to-r from-spotify-green to-green-400 h-2 sm:h-3 rounded-full transition-all duration-1000"
                               style={{ width: `${genre.percentage}%` }}
                             ></div>
                           </div>
@@ -812,17 +812,17 @@ function Wrapped() {
 
                 {/* Audio Features */}
                 <Card className="bg-gray-800 border-gray-700">
-                  <CardContent className="p-6">
-                    <div className="flex items-center gap-3 mb-6">
-                      <Disc3 className="w-6 h-6 text-spotify-green" />
-                      <h2 className="text-2xl font-bold text-white">Your Music DNA</h2>
+                  <CardContent className="p-4 sm:p-6">
+                    <div className="flex items-center gap-3 mb-4 sm:mb-6">
+                      <Disc3 className="w-5 h-5 sm:w-6 sm:h-6 text-spotify-green" />
+                      <h2 className="text-xl sm:text-2xl font-bold text-white">Your Music DNA</h2>
                     </div>
                     
-                    <div className="space-y-6">
+                    <div className="space-y-4 sm:space-y-6">
                       <div className="space-y-2">
                         <div className="flex justify-between items-center">
-                          <span className="text-gray-100 font-medium">Danceability</span>
-                          <span className="text-spotify-green font-bold">{stats.danceability}%</span>
+                          <span className="text-gray-100 font-medium text-sm sm:text-base">Danceability</span>
+                          <span className="text-spotify-green font-bold text-sm sm:text-base">{stats.danceability}%</span>
                         </div>
                         <div className="w-full bg-gray-600 rounded-full h-2">
                           <div 
@@ -834,8 +834,8 @@ function Wrapped() {
                       
                       <div className="space-y-2">
                         <div className="flex justify-between items-center">
-                          <span className="text-gray-100 font-medium">Speechiness</span>
-                          <span className="text-spotify-green font-bold">{stats.speechiness}%</span>
+                          <span className="text-gray-100 font-medium text-sm sm:text-base">Speechiness</span>
+                          <span className="text-spotify-green font-bold text-sm sm:text-base">{stats.speechiness}%</span>
                         </div>
                         <div className="w-full bg-gray-600 rounded-full h-2">
                           <div 
@@ -847,8 +847,8 @@ function Wrapped() {
                       
                       <div className="space-y-2">
                         <div className="flex justify-between items-center">
-                          <span className="text-gray-100 font-medium">Instrumentalness</span>
-                          <span className="text-spotify-green font-bold">{stats.instrumentalness}%</span>
+                          <span className="text-gray-100 font-medium text-sm sm:text-base">Instrumentalness</span>
+                          <span className="text-spotify-green font-bold text-sm sm:text-base">{stats.instrumentalness}%</span>
                         </div>
                         <div className="w-full bg-gray-600 rounded-full h-2">
                           <div 
@@ -877,20 +877,20 @@ function Wrapped() {
         
         {/* All Tracks Dialog */}
         <Dialog open={showAllTracksDialog} onOpenChange={setShowAllTracksDialog}>
-          <DialogContent className="max-w-4xl max-h-[80vh] bg-gray-800 border-gray-700">
+          <DialogContent className="max-w-4xl max-h-[95vh] bg-gray-800 border-gray-700 mx-2 sm:mx-4 w-[calc(100vw-1rem)] sm:w-auto">
             <DialogHeader>
-              <DialogTitle className="text-xl font-bold text-white flex items-center gap-2">
+              <DialogTitle className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
                 <Music className="w-5 h-5 text-spotify-green" />
-                Your Top {topTracks?.items?.length || 50} Songs - {timeRangeLabels[selectedTimeRange]}
+                <span className="truncate">Your Top {topTracks?.items?.length || 50} Songs - {timeRangeLabels[selectedTimeRange]}</span>
               </DialogTitle>
             </DialogHeader>
             
-            <div className="overflow-y-auto max-h-[60vh] pr-4">
-              <div className="space-y-3">
+            <div className="overflow-y-auto max-h-[70vh] pr-2">
+              <div className="space-y-2 sm:space-y-3">
                 {topTracks?.items.map((track, index) => (
                   <div 
                     key={track.id}
-                    className="flex items-center gap-4 p-3 rounded-lg hover:bg-gray-700 transition-colors group"
+                    className="flex items-center gap-3 sm:gap-4 p-3 rounded-lg hover:bg-gray-700 transition-colors group"
                   >
                     <div className="flex-shrink-0 relative">
                       <img 
@@ -901,29 +901,29 @@ function Wrapped() {
                     </div>
                     
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-spotify-green font-bold text-lg">#{index + 1}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-spotify-green font-bold text-lg flex-shrink-0">#{index + 1}</span>
                         <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-white truncate">{track.name}</p>
-                          <p className="text-gray-300 text-sm truncate">
+                          <p className="font-semibold text-white text-base leading-tight mb-1">{track.name}</p>
+                          <p className="text-gray-300 text-sm leading-tight">
                             {track.artists.map(a => a.name).join(', ')}
                           </p>
                         </div>
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-3">
-                      <Badge variant="outline" className="text-xs border-gray-500 text-gray-300">
+                    <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 sm:gap-3 flex-shrink-0">
+                      <Badge variant="outline" className="text-xs border-gray-500 text-gray-300 whitespace-nowrap">
                         {Math.round(track.popularity)}% popular
                       </Badge>
                       
                       <Button
                         size="sm"
                         onClick={() => playTrack(track)}
-                        className="bg-spotify-green hover:bg-spotify-green/90 text-black font-semibold px-3 py-1 rounded-full transition-all duration-200 opacity-0 group-hover:opacity-100"
+                        className="bg-spotify-green hover:bg-spotify-green/90 text-black font-semibold px-3 sm:px-4 py-2 rounded-full transition-all duration-200 flex items-center gap-1 sm:gap-2 min-w-[70px] sm:min-w-[80px] group-hover:scale-105 text-sm"
                       >
-                        <Play className="w-4 h-4 mr-1" />
-                        Play
+                        <Play className="w-4 h-4" />
+                        <span className="hidden sm:inline">Play</span>
                       </Button>
                     </div>
                   </div>

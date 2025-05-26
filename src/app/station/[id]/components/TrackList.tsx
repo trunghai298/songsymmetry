@@ -73,28 +73,28 @@ export default function TrackList({
         return (
           <div
             key={track.id}
-            className={`flex items-center justify-between p-3 rounded-lg transition-all duration-200 group hover:shadow-md ${
+            className={`flex items-start sm:items-center justify-between p-3 rounded-lg transition-all duration-200 group hover:shadow-md ${
               isCurrentlyPlaying || (debugShowAnimation && index === 0)
                 ? "bg-green-500/10 border border-green-500/30 hover:bg-green-500/15"
                 : "bg-gray-800/70 border border-transparent hover:bg-gray-700/90 hover:border-gray-700"
             }`}
           >
-            <div className="flex items-center gap-3">
+            <div className="flex items-start sm:items-center gap-3 flex-1 min-w-0">
               {track.imageUrl && (
                 <img
                   src={track.imageUrl}
                   alt={track.name || "Track"}
-                  className="w-12 h-12 rounded"
+                  className="w-10 h-10 sm:w-12 sm:h-12 rounded flex-shrink-0"
                 />
               )}
               {!track.imageUrl && (
-                <div className="w-12 h-12 bg-gradient-to-br from-gray-700 to-gray-800 rounded flex items-center justify-center">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-gray-700 to-gray-800 rounded flex items-center justify-center flex-shrink-0">
                   <i className="bi bi-music-note text-purple-400"></i>
                 </div>
               )}
-              <div className="flex-1 min-w-0 px-3">
-                <div className="flex items-center gap-2">
-                  <p className="font-medium text-white truncate">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start sm:items-center gap-2 flex-wrap sm:flex-nowrap">
+                  <p className="font-medium text-white text-sm sm:text-base leading-tight sm:truncate">
                     {track.name || "Unknown Track"}
                   </p>
                   {(isCurrentlyPlaying || (debugShowAnimation && index === 0)) && (
@@ -135,30 +135,31 @@ export default function TrackList({
                     </div>
                   )}
                 </div>
-                <p className="text-sm text-gray-400 truncate">
+                <p className="text-xs sm:text-sm text-gray-400 leading-tight sm:truncate mt-1">
                   {track.artist || "Unknown Artist"}
                 </p>
-                <div className="flex items-center mt-1 text-xs text-gray-500">
+                <div className="flex items-center mt-1 text-xs text-gray-500 flex-wrap sm:flex-nowrap">
                   <Avatar className="h-4 w-4 mr-1">
                     <AvatarImage src={track.addedBy?.image || undefined} />
                     <AvatarFallback className="text-[8px]">
                       {track.addedBy?.name?.charAt(0) || "?"}
                     </AvatarFallback>
                   </Avatar>
-                  <span>
-                    Added by {track.addedBy?.name || "Unknown"} •{" "}
-                    {formatDate(track.addedAt)}
+                  <span className="break-words">
+                    <span className="sm:inline">Added by {track.addedBy?.name || "Unknown"}</span>
+                    <span className="hidden sm:inline"> • </span>
+                    <span className="block sm:inline text-gray-600 sm:text-gray-500">{formatDate(track.addedAt)}</span>
                   </span>
                 </div>
               </div>
             </div>
-            <div className="flex space-x-1">
+            <div className="flex items-start sm:items-center space-x-1 flex-shrink-0 ml-2">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => onPlayTrack(track, originalIndex)}
                 disabled={playingTrackId === track.id}
-                className={`rounded-full h-9 w-9 p-0 text-white group-hover:scale-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 ${
+                className={`rounded-full h-8 w-8 sm:h-9 sm:w-9 p-0 text-white group-hover:scale-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 ${
                   isCurrentlyPlaying || (debugShowAnimation && index === 0)
                     ? "bg-green-500 hover:bg-green-600"
                     : "bg-gray-700/50 hover:bg-green-600"
@@ -170,11 +171,11 @@ export default function TrackList({
                 }
               >
                 {playingTrackId === track.id ? (
-                  <span className="inline-block w-4 h-4 border-2 border-t-transparent border-white rounded-full animate-spin"></span>
+                  <span className="inline-block w-3 h-3 sm:w-4 sm:h-4 border-2 border-t-transparent border-white rounded-full animate-spin"></span>
                 ) : isCurrentlyPlaying || (debugShowAnimation && index === 0) ? (
-                  <i className="bi bi-pause-fill text-lg"></i>
+                  <i className="bi bi-pause-fill text-sm sm:text-lg"></i>
                 ) : (
-                  <i className="bi bi-play-fill text-lg"></i>
+                  <i className="bi bi-play-fill text-sm sm:text-lg"></i>
                 )}
               </Button>
             </div>

@@ -347,295 +347,289 @@ function Receiptify() {
   };
 
   return (
-    <Container>
-      <LoginModal {...authModalProps} />
-      
-      <div className="min-h-screen py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-4 mb-4">
-            <Receipt className="w-8 h-8 text-spotify-green" />
-            <Display size="large">Receiptify</Display>
+    <div className="min-h-screen bg-gray-900 pt-20 sm:pt-24">
+      <Container>
+        <LoginModal {...authModalProps} />
+        
+        <div className="py-4 sm:py-8">
+          {/* Header */}
+          <div className="mb-6 sm:mb-8">
+            <div className="flex items-center gap-3 sm:gap-4 mb-4">
+              <Receipt className="w-6 h-6 sm:w-8 sm:h-8 text-spotify-green" />
+              <h1 className="text-2xl sm:text-4xl font-bold text-white">Receiptify</h1>
+            </div>
+            <p className="text-gray-300 text-sm sm:text-base">
+              Create beautiful receipts from your Spotify listening data
+            </p>
           </div>
-          <Text color="secondary" variant="body-large">
-            Create beautiful receipts from your Spotify listening data
-          </Text>
-        </div>
 
-        {/* Progress Steps */}
-        <div className="mb-8">
-          <div className="flex items-center gap-4">
-            {[
-              { key: 'configure', label: 'Configure', icon: Settings },
-              { key: 'customize', label: 'Customize', icon: Palette },
-              { key: 'preview', label: 'Preview', icon: ImageLucide }
-            ].map((step, index) => {
-              const isActive = currentStep === step.key;
-              const isCompleted = ['configure', 'customize', 'preview'].indexOf(currentStep) > index;
-              
-              return (
-                <React.Fragment key={step.key}>
-                  <div className={`flex items-center gap-2 px-4 py-2 rounded-full transition-colors ${
-                    isActive 
-                      ? 'bg-spotify-green text-black' 
-                      : isCompleted 
-                        ? 'bg-green-600 text-white' 
-                        : 'bg-gray-700 text-gray-300'
-                  }`}>
-                    <step.icon className="w-4 h-4" />
-                    <span className="text-sm font-medium">{step.label}</span>
-                  </div>
-                  {index < 2 && (
-                    <ChevronRight className="w-4 h-4 text-gray-500" />
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <Grid cols={2} responsive={{ sm: 1, lg: 2 }} gap="xl">
-          {/* Configuration Panel */}
-          <Stack spacing="lg">
-            {currentStep === 'configure' && (
-              <>
-                <Heading level={2}>Receipt Configuration</Heading>
+          {/* Progress Steps */}
+          <div className="mb-6 sm:mb-8 overflow-x-auto">
+            <div className="flex items-center gap-2 sm:gap-4 min-w-max px-2">
+              {[
+                { key: 'configure', label: 'Configure', icon: Settings },
+                { key: 'customize', label: 'Customize', icon: Palette },
+                { key: 'preview', label: 'Preview', icon: ImageLucide }
+              ].map((step, index) => {
+                const isActive = currentStep === step.key;
+                const isCompleted = ['configure', 'customize', 'preview'].indexOf(currentStep) > index;
                 
-                <Stack spacing="md">
-                  <div>
-                    <Text color="primary" weight="medium" className="mb-2">Receipt Type</Text>
-                    <Grid cols={1} gap="sm">
-                      {RECEIPT_TYPES.map((type) => (
-                        <AppCard
-                          key={type.value}
-                          variant={receipt.type === type.value ? 'spotify' : 'default'}
-                          clickable
-                          onClick={() => setReceipt({ ...receipt, type: type.value as any })}
-                          className="transition-all duration-200"
-                          padding="md"
-                        >
-                          <CardContent>
-                            <Flex gap="md" align="center">
-                              <type.icon className="w-5 h-5" />
+                return (
+                  <React.Fragment key={step.key}>
+                    <div className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 rounded-full transition-colors text-xs sm:text-sm ${
+                      isActive 
+                        ? 'bg-spotify-green text-black' 
+                        : isCompleted 
+                          ? 'bg-green-600 text-white' 
+                          : 'bg-gray-700 text-gray-300'
+                    }`}>
+                      <step.icon className="w-3 h-3 sm:w-4 sm:h-4" />
+                      <span className="font-medium whitespace-nowrap">{step.label}</span>
+                    </div>
+                    {index < 2 && (
+                      <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500 flex-shrink-0" />
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Main Content */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+            {/* Configuration Panel */}
+            <div className="space-y-6">
+              {currentStep === 'configure' && (
+                <>
+                  <h2 className="text-xl sm:text-2xl font-bold text-white">Receipt Configuration</h2>
+                  
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-white font-medium mb-3">Receipt Type</label>
+                      <div className="space-y-3">
+                        {RECEIPT_TYPES.map((type) => (
+                          <div
+                            key={type.value}
+                            onClick={() => setReceipt({ ...receipt, type: type.value as any })}
+                            className={`p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 ${
+                              receipt.type === type.value 
+                                ? 'border-spotify-green bg-spotify-green/10' 
+                                : 'border-gray-600 bg-gray-800 hover:border-gray-500'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <type.icon className="w-5 h-5 text-white" />
                               <div>
-                                <Text weight="semibold">{type.label}</Text>
-                                <Text variant="caption-large" color="secondary">{type.description}</Text>
+                                <div className="text-white font-semibold">{type.label}</div>
+                                <div className="text-gray-400 text-sm">{type.description}</div>
                               </div>
-                            </Flex>
-                          </CardContent>
-                        </AppCard>
-                      ))}
-                    </Grid>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-white font-medium mb-3">Time Period</label>
+                      <Select
+                        value={receipt.duration}
+                        onValueChange={(value) => setReceipt({ ...receipt, duration: value as any })}
+                      >
+                        <SelectTrigger className="bg-gray-800 border-gray-600 h-12">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-gray-800 border-gray-600">
+                          <SelectItem value="short_term">Last 4 Weeks</SelectItem>
+                          <SelectItem value="medium_term">Last 6 Months</SelectItem>
+                          <SelectItem value="long_term">All Time</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <label className="block text-white font-medium mb-3">Number of Items</label>
+                      <Select
+                        value={receipt.length.toString()}
+                        onValueChange={(value) => setReceipt({ ...receipt, length: parseInt(value) as any })}
+                      >
+                        <SelectTrigger className="bg-gray-800 border-gray-600 h-12">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-gray-800 border-gray-600">
+                          <SelectItem value="10">10 Items</SelectItem>
+                          <SelectItem value="15">15 Items</SelectItem>
+                          <SelectItem value="20">20 Items</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
 
-                  <div>
-                    <Text color="primary" weight="medium" className="mb-2">Time Period</Text>
-                    <Select
-                      value={receipt.duration}
-                      onValueChange={(value) => setReceipt({ ...receipt, duration: value as any })}
-                    >
-                      <SelectTrigger className="bg-gray-800 border-gray-600">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-gray-800 border-gray-600">
-                        <SelectItem value="short_term">Last 4 Weeks</SelectItem>
-                        <SelectItem value="medium_term">Last 6 Months</SelectItem>
-                        <SelectItem value="long_term">All Time</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Text color="primary" weight="medium" className="mb-2">Number of Items</Text>
-                    <Select
-                      value={receipt.length.toString()}
-                      onValueChange={(value) => setReceipt({ ...receipt, length: parseInt(value) as any })}
-                    >
-                      <SelectTrigger className="bg-gray-800 border-gray-600">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-gray-800 border-gray-600">
-                        <SelectItem value="10">10 Items</SelectItem>
-                        <SelectItem value="15">15 Items</SelectItem>
-                        <SelectItem value="20">20 Items</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </Stack>
-
-                <AppButton 
-                  onClick={() => setCurrentStep('customize')}
-                  variant="spotify"
-                  rightIcon={ChevronRight}
-                >
-                  Continue to Customize
-                </AppButton>
+                  <button 
+                    onClick={() => setCurrentStep('customize')}
+                    className="w-full bg-spotify-green hover:bg-spotify-green/90 text-black font-semibold py-3 px-6 rounded-full transition-colors duration-200 flex items-center justify-center gap-2"
+                  >
+                    Continue to Customize
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
               </>
             )}
 
             {currentStep === 'customize' && (
               <>
-                <Heading level={2}>Customize Appearance</Heading>
+                <h2 className="text-xl sm:text-2xl font-bold text-white">Customize Appearance</h2>
                 
-                <Stack spacing="md">
+                <div className="space-y-6">
                   <div>
-                    <Text color="primary" weight="medium" className="mb-3">Receipt Title</Text>
+                    <label className="block text-white font-medium mb-3">Receipt Title</label>
                     <Input
                       value={receipt.title}
                       onChange={(e) => setReceipt({ ...receipt, title: e.target.value.slice(0, 25) })}
                       placeholder="Enter receipt title"
-                      className="bg-gray-800 border-gray-600"
+                      className="bg-gray-800 border-gray-600 h-12"
                     />
                   </div>
 
                   <div>
-                    <Text color="primary" weight="medium" className="mb-3">Text Color</Text>
-                    <div className="flex gap-2">
+                    <label className="block text-white font-medium mb-3">Text Color</label>
+                    <div className="flex gap-3">
                       <Input
                         type="color"
                         value={receipt.textColor}
                         onChange={(e) => setReceipt({ ...receipt, textColor: e.target.value })}
-                        className="w-16 h-10 bg-gray-800 border-gray-600"
+                        className="w-16 h-12 bg-gray-800 border-gray-600"
                       />
                       <Input
                         value={receipt.textColor}
                         onChange={(e) => setReceipt({ ...receipt, textColor: e.target.value })}
                         placeholder="#000000"
-                        className="flex-1 bg-gray-800 border-gray-600"
+                        className="flex-1 bg-gray-800 border-gray-600 h-12"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <Text color="primary" weight="medium" className="mb-3">Background Style</Text>
-                    <Grid cols={2} gap="sm">
+                    <label className="block text-white font-medium mb-3">Background Style</label>
+                    <div className="grid grid-cols-2 gap-3">
                       {BACKGROUND_OPTIONS.map((bg) => (
-                        <AppCard
+                        <div
                           key={bg.id}
-                          variant={receipt.background === bg.id ? 'spotify' : 'default'}
-                          clickable
                           onClick={() => setReceipt({ ...receipt, background: bg.id as any })}
-                          className="transition-all duration-200"
+                          className={`border-2 rounded-lg overflow-hidden cursor-pointer transition-all duration-200 ${
+                            receipt.background === bg.id 
+                              ? 'border-spotify-green' 
+                              : 'border-gray-600 hover:border-gray-500'
+                          }`}
                         >
-                          <CardContent>
-                            <div className="relative aspect-video overflow-hidden rounded-t-lg">
-                              <img
-                                src={bg.src.src}
-                                alt={bg.name}
-                                className="w-full h-full object-cover"
-                              />
-                              <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                                <Text color="primary" weight="bold" className="text-white">{bg.name}</Text>
-                              </div>
+                          <div className="relative aspect-video overflow-hidden">
+                            <img
+                              src={bg.src.src}
+                              alt={bg.name}
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                              <span className="text-white font-bold text-sm">{bg.name}</span>
                             </div>
-                            <div className="p-3">
-                              <Text variant="caption-large" color="secondary">{bg.description}</Text>
-                            </div>
-                          </CardContent>
-                        </AppCard>
+                          </div>
+                          <div className="p-2 bg-gray-800">
+                            <span className="text-gray-400 text-xs">{bg.description}</span>
+                          </div>
+                        </div>
                       ))}
-                    </Grid>
+                    </div>
                   </div>
-                </Stack>
+                </div>
 
-                <Flex gap="md">
-                  <AppButton 
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button 
                     onClick={() => setCurrentStep('configure')}
-                    variant="outline"
-                    leftIcon={ChevronLeft}
+                    className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-full transition-colors duration-200 flex items-center justify-center gap-2"
                   >
+                    <ChevronLeft className="w-4 h-4" />
                     Back
-                  </AppButton>
-                  <AppButton 
+                  </button>
+                  <button 
                     onClick={() => setCurrentStep('preview')}
-                    variant="spotify"
-                    rightIcon={ChevronRight}
+                    className="flex-1 bg-spotify-green hover:bg-spotify-green/90 text-black font-semibold py-3 px-6 rounded-full transition-colors duration-200 flex items-center justify-center gap-2"
                   >
                     Preview Receipt
-                  </AppButton>
-                </Flex>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
               </>
             )}
 
             {currentStep === 'preview' && (
               <>
-                <Heading level={2}>Final Preview</Heading>
+                <h2 className="text-xl sm:text-2xl font-bold text-white">Final Preview</h2>
                 
-                <Stack spacing="md">
-                  <AppCard variant="muted" padding="lg">
-                    <CardContent>
-                      <Stack spacing="sm">
-                        <Text weight="semibold">Receipt Details</Text>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <div>
-                            <Text color="secondary" variant="caption-large">Type</Text>
-                            <Text>{RECEIPT_TYPES.find(t => t.value === receipt.type)?.label}</Text>
-                          </div>
-                          <div>
-                            <Text color="secondary" variant="caption-large">Period</Text>
-                            <Text>{DURATION_LABELS[receipt.duration]}</Text>
-                          </div>
-                          <div>
-                            <Text color="secondary" variant="caption-large">Items</Text>
-                            <Text>{receipt.length}</Text>
-                          </div>
-                          <div>
-                            <Text color="secondary" variant="caption-large">Style</Text>
-                            <Text>{BACKGROUND_OPTIONS.find(bg => bg.id === receipt.background)?.name}</Text>
-                          </div>
-                        </div>
-                      </Stack>
-                    </CardContent>
-                  </AppCard>
+                <div className="space-y-6">
+                  <div className="bg-gray-800 rounded-lg p-4">
+                    <h3 className="text-white font-semibold mb-4">Receipt Details</h3>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-400">Type</span>
+                        <div className="text-white">{RECEIPT_TYPES.find(t => t.value === receipt.type)?.label}</div>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Period</span>
+                        <div className="text-white">{DURATION_LABELS[receipt.duration]}</div>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Items</span>
+                        <div className="text-white">{receipt.length}</div>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Style</span>
+                        <div className="text-white">{BACKGROUND_OPTIONS.find(bg => bg.id === receipt.background)?.name}</div>
+                      </div>
+                    </div>
+                  </div>
 
-                  <AppButton 
+                  <button 
                     onClick={downloadReceipt}
-                    variant="spotify"
-                    size="lg"
-                    loading={isGenerating}
-                    leftIcon={Download}
+                    disabled={isGenerating}
+                    className="w-full bg-spotify-green hover:bg-spotify-green/90 disabled:opacity-50 text-black font-semibold py-3 px-6 rounded-full transition-colors duration-200 flex items-center justify-center gap-2"
                   >
+                    <Download className="w-4 h-4" />
                     {isGenerating ? 'Generating...' : 'Download Receipt'}
-                  </AppButton>
-                </Stack>
+                  </button>
+                </div>
 
-                <Flex gap="md">
-                  <AppButton 
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button 
                     onClick={() => setCurrentStep('customize')}
-                    variant="outline"
-                    leftIcon={ChevronLeft}
+                    className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-full transition-colors duration-200 flex items-center justify-center gap-2"
                   >
+                    <ChevronLeft className="w-4 h-4" />
                     Back to Customize
-                  </AppButton>
-                  <AppButton 
+                  </button>
+                  <button 
                     onClick={() => {
                       setCurrentStep('configure');
                       generateReceiptData();
                     }}
-                    variant="ghost"
+                    className="flex-1 bg-gray-600 hover:bg-gray-500 text-white font-semibold py-3 px-6 rounded-full transition-colors duration-200"
                   >
                     Start Over
-                  </AppButton>
-                </Flex>
+                  </button>
+                </div>
               </>
             )}
-          </Stack>
+            </div>
 
-          {/* Preview Panel */}
-          <Stack spacing="lg">
-            <Heading level={3}>Live Preview</Heading>
-            <AppCard variant="muted" className="sticky top-8" padding="lg">
-              <CardContent>
+            {/* Preview Panel */}
+            <div className="space-y-6">
+              <h3 className="text-lg sm:text-xl font-bold text-white">Live Preview</h3>
+              <div className="bg-gray-800 rounded-lg p-4 lg:sticky lg:top-8">
                 <div className="flex justify-center">
                   {renderReceiptPreview()}
                 </div>
-              </CardContent>
-            </AppCard>
-          </Stack>
-        </Grid>
-      </div>
-    </Container>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Container>
+    </div>
   );
 }
 

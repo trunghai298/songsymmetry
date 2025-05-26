@@ -13,7 +13,7 @@ import { Music, Disc3 } from "lucide-react";
 
 const WelcomeSection = () => {
   return (
-    <section className="w-full py-4 md:py-8 lg:py-12 xl:py-18">
+    <section className="w-full py-2 md:py-4 lg:py-8 xl:py-12">
       <div className="container px-4 md:px-6">
         <div className="flex flex-col items-center space-y-4 text-center">
           <div className="">
@@ -258,7 +258,7 @@ function Explore() {
       </div>
 
       {/* Content */}
-      <div className="relative z-10">
+      <div className="relative z-10 pt-20 sm:pt-24">
         {/* Debug info */}
         {process.env.NODE_ENV === "development" && (
           <div className="fixed top-4 right-4 z-50 p-2 bg-black/80 text-white text-xs rounded">
@@ -278,21 +278,23 @@ function Explore() {
           
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <div className="flex justify-center mb-8">
-              <TabsList className="bg-gray-800 border border-gray-700">
+            <div className="flex justify-center mb-8 px-4">
+              <TabsList className="bg-gray-800 border border-gray-700 w-full max-w-2xl grid grid-cols-2 h-auto">
                 <TabsTrigger 
                   value="songs" 
-                  className="flex items-center gap-2 data-[state=active]:bg-gray-700 data-[state=active]:text-white text-gray-400"
+                  className="flex items-center justify-center gap-1 sm:gap-2 data-[state=active]:bg-gray-700 data-[state=active]:text-white text-gray-400 text-sm sm:text-base py-3"
                 >
-                  <Music className="w-4 h-4" />
-                  Most Streamed Songs
+                  <Music className="w-4 h-4 flex-shrink-0" />
+                  <span className="hidden sm:inline">Most Streamed Songs</span>
+                  <span className="sm:hidden">Songs</span>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="albums" 
-                  className="flex items-center gap-2 data-[state=active]:bg-gray-700 data-[state=active]:text-white text-gray-400"
+                  className="flex items-center justify-center gap-1 sm:gap-2 data-[state=active]:bg-gray-700 data-[state=active]:text-white text-gray-400 text-sm sm:text-base py-3"
                 >
-                  <Disc3 className="w-4 h-4" />
-                  Most Streamed Albums
+                  <Disc3 className="w-4 h-4 flex-shrink-0" />
+                  <span className="hidden sm:inline">Most Streamed Albums</span>
+                  <span className="sm:hidden">Albums</span>
                 </TabsTrigger>
               </TabsList>
             </div>

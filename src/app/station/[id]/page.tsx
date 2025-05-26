@@ -780,7 +780,7 @@ export default function StationDetailPage() {
           {/* Station image */}
           <div className="w-full md:w-1/3 relative group">
             <div
-              className="h-64 bg-cover bg-center rounded-lg overflow-hidden shadow-lg transition-transform duration-300 group-hover:scale-[1.02]"
+              className="h-48 sm:h-64 bg-cover bg-center rounded-lg overflow-hidden shadow-lg transition-transform duration-300 group-hover:scale-[1.02]"
               style={{
                 backgroundImage: `url('${
                   station.imageUrl ||
@@ -802,7 +802,7 @@ export default function StationDetailPage() {
           <div className="w-full md:w-2/3 flex flex-col justify-between">
             <div>
               <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
-                <h1 className="text-3xl lg:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 leading-tight">
                   {station.name}
                 </h1>
               </div>

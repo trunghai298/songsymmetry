@@ -620,9 +620,17 @@ export default function DailySongGamePage() {
           </Card>
         )}
 
+        {/* Mobile Tip */}
+        <div className="md:hidden mb-4 p-3 bg-blue-600/20 border border-blue-500/30 rounded-lg">
+          <div className="text-blue-300 text-sm text-center">
+            💡 <strong>Tip:</strong> Play on desktop for the full experience with all song attributes!
+          </div>
+        </div>
+
         {/* Game Grid - Headers */}
         <div className="mb-4">
-          <div className="grid grid-cols-9 gap-2 mb-2">
+          {/* Desktop Headers */}
+          <div className="hidden md:grid grid-cols-9 gap-2 mb-2">
             <div className="p-3 bg-gray-800 rounded text-center text-white font-semibold">
               Song
             </div>
@@ -648,6 +656,22 @@ export default function DailySongGamePage() {
               Explicit
             </div>
             <div className="p-3 bg-gray-800 rounded text-center text-white font-semibold">
+              Cover
+            </div>
+          </div>
+          
+          {/* Mobile Headers */}
+          <div className="md:hidden grid grid-cols-4 gap-1 mb-2">
+            <div className="p-2 bg-gray-800 rounded text-center text-white font-semibold text-xs">
+              Song
+            </div>
+            <div className="p-2 bg-gray-800 rounded text-center text-white font-semibold text-xs">
+              Artist
+            </div>
+            <div className="p-2 bg-gray-800 rounded text-center text-white font-semibold text-xs">
+              Year
+            </div>
+            <div className="p-2 bg-gray-800 rounded text-center text-white font-semibold text-xs">
               Cover
             </div>
           </div>
@@ -677,136 +701,202 @@ export default function DailySongGamePage() {
             };
 
             return (
-              <div key={attempt.id} className="grid grid-cols-9 gap-2 mb-2">
-                <div
-                  className={`p-3 rounded text-center text-white font-medium transition-all duration-500 ${getColumnBackgroundColor(
-                    0,
-                    (comparison?.songName || "incorrect") as
-                      | "correct"
-                      | "close"
-                      | "incorrect"
-                  )} ${getColumnAnimationClass(0)}`}
-                >
-                  {attempt.guessedSongName}
+              <>
+                {/* Desktop Grid */}
+                <div key={attempt.id} className="hidden md:grid grid-cols-9 gap-2 mb-2">
+                  <div
+                    className={`p-3 rounded text-center text-white font-medium transition-all duration-500 ${getColumnBackgroundColor(
+                      0,
+                      (comparison?.songName || "incorrect") as
+                        | "correct"
+                        | "close"
+                        | "incorrect"
+                    )} ${getColumnAnimationClass(0)}`}
+                  >
+                    {attempt.guessedSongName}
+                  </div>
+                  <div
+                    className={`p-3 rounded text-center text-white font-medium transition-all duration-500 ${getColumnBackgroundColor(
+                      1,
+                      (comparison?.artistName || "incorrect") as
+                        | "correct"
+                        | "close"
+                        | "incorrect"
+                    )} ${getColumnAnimationClass(1)}`}
+                  >
+                    {attempt.guessedArtistName}
+                  </div>
+                  <div
+                    className={`p-3 rounded text-center text-white font-medium transition-all duration-500 ${getColumnBackgroundColor(
+                      2,
+                      (comparison?.albumName || "incorrect") as
+                        | "correct"
+                        | "close"
+                        | "incorrect"
+                    )} ${getColumnAnimationClass(2)}`}
+                  >
+                    {attempt.guessedAlbumName || "Unknown"}
+                  </div>
+                  <div
+                    className={`p-3 rounded text-center text-white font-medium transition-all duration-500 ${getColumnBackgroundColor(
+                      3,
+                      (comparison?.genre || "incorrect") as
+                        | "correct"
+                        | "close"
+                        | "incorrect"
+                    )} ${getColumnAnimationClass(3)}`}
+                  >
+                    {attempt.guessedGenre || "Unknown"}
+                  </div>
+                  <div
+                    className={`p-3 rounded text-center text-white font-medium transition-all duration-500 ${getColumnBackgroundColor(
+                      4,
+                      (comparison?.releaseYear || "incorrect") as
+                        | "correct"
+                        | "close"
+                        | "incorrect"
+                    )} ${getColumnAnimationClass(4)}`}
+                  >
+                    <div>{attempt.guessedReleaseYear || "Unknown"}</div>
+                    {gameState.answer && (
+                      <div className="text-xs mt-1">
+                        {getDirectionalArrow(
+                          attempt.guessedReleaseYear ?? null,
+                          gameState.answer.releaseYear ?? null,
+                          String(comparison?.releaseYear || "incorrect")
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div
+                    className={`p-3 rounded text-center text-white font-medium transition-all duration-500 ${getColumnBackgroundColor(
+                      5,
+                      (comparison?.popularity || "incorrect") as
+                        | "correct"
+                        | "close"
+                        | "incorrect"
+                    )} ${getColumnAnimationClass(5)}`}
+                  >
+                    <div>{attempt.guessedPopularity || "Unknown"}</div>
+                    {gameState.answer && (
+                      <div className="text-xs mt-1">
+                        {getDirectionalArrow(
+                          attempt.guessedPopularity ?? null,
+                          gameState.answer.popularity ?? null,
+                          String(comparison?.popularity || "incorrect")
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div
+                    className={`p-3 rounded text-center text-white font-medium transition-all duration-500 ${getColumnBackgroundColor(
+                      6,
+                      (comparison?.durationMs || "incorrect") as
+                        | "correct"
+                        | "close"
+                        | "incorrect"
+                    )} ${getColumnAnimationClass(6)}`}
+                  >
+                    <div>{formatDuration(attempt.guessedDurationMs)}</div>
+                    {gameState.answer && (
+                      <div className="text-xs mt-1">
+                        {getDirectionalArrow(
+                          attempt.guessedDurationMs ?? null,
+                          gameState.answer.durationMs ?? null,
+                          String(comparison?.durationMs || "incorrect")
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div
+                    className={`p-3 rounded text-center text-white font-medium transition-all duration-500 ${getColumnBackgroundColor(
+                      7,
+                      (comparison?.isExplicit || "incorrect") as
+                        | "correct"
+                        | "close"
+                        | "incorrect"
+                    )} ${getColumnAnimationClass(7)}`}
+                  >
+                    {attempt.guessedIsExplicit === true
+                      ? "Yes"
+                      : attempt.guessedIsExplicit === false
+                      ? "No"
+                      : "Unknown"}
+                  </div>
+                  <div className="p-1 rounded bg-gray-700 flex items-center justify-center">
+                    {attempt.guessedImageUrl && (
+                      <img
+                        src={attempt.guessedImageUrl}
+                        alt="Album cover"
+                        className="w-10 h-10 rounded object-cover"
+                      />
+                    )}
+                  </div>
                 </div>
-                <div
-                  className={`p-3 rounded text-center text-white font-medium transition-all duration-500 ${getColumnBackgroundColor(
-                    1,
-                    (comparison?.artistName || "incorrect") as
-                      | "correct"
-                      | "close"
-                      | "incorrect"
-                  )} ${getColumnAnimationClass(1)}`}
-                >
-                  {attempt.guessedArtistName}
-                </div>
-                <div
-                  className={`p-3 rounded text-center text-white font-medium transition-all duration-500 ${getColumnBackgroundColor(
-                    2,
-                    (comparison?.albumName || "incorrect") as
-                      | "correct"
-                      | "close"
-                      | "incorrect"
-                  )} ${getColumnAnimationClass(2)}`}
-                >
-                  {attempt.guessedAlbumName || "Unknown"}
-                </div>
-                <div
-                  className={`p-3 rounded text-center text-white font-medium transition-all duration-500 ${getColumnBackgroundColor(
-                    3,
-                    (comparison?.genre || "incorrect") as
-                      | "correct"
-                      | "close"
-                      | "incorrect"
-                  )} ${getColumnAnimationClass(3)}`}
-                >
-                  {attempt.guessedGenre || "Unknown"}
-                </div>
-                <div
-                  className={`p-3 rounded text-center text-white font-medium transition-all duration-500 ${getColumnBackgroundColor(
-                    4,
-                    (comparison?.releaseYear || "incorrect") as
-                      | "correct"
-                      | "close"
-                      | "incorrect"
-                  )} ${getColumnAnimationClass(4)}`}
-                >
-                  <div>{attempt.guessedReleaseYear || "Unknown"}</div>
-                  {gameState.answer && (
-                    <div className="text-xs mt-1">
-                      {getDirectionalArrow(
-                        attempt.guessedReleaseYear ?? null,
-                        gameState.answer.releaseYear ?? null,
-                        String(comparison?.releaseYear || "incorrect")
-                      )}
+                
+                {/* Mobile Grid */}
+                <div key={`${attempt.id}-mobile`} className="md:hidden grid grid-cols-4 gap-1 mb-2">
+                  <div
+                    className={`p-2 rounded text-center text-white font-medium text-xs transition-all duration-500 ${getColumnBackgroundColor(
+                      0,
+                      (comparison?.songName || "incorrect") as
+                        | "correct"
+                        | "close"
+                        | "incorrect"
+                    )} ${getColumnAnimationClass(0)}`}
+                  >
+                    <div className="break-words leading-tight">
+                      {attempt.guessedSongName.length > 12 
+                        ? `${attempt.guessedSongName.substring(0, 12)}...`
+                        : attempt.guessedSongName}
                     </div>
-                  )}
-                </div>
-                <div
-                  className={`p-3 rounded text-center text-white font-medium transition-all duration-500 ${getColumnBackgroundColor(
-                    5,
-                    (comparison?.popularity || "incorrect") as
-                      | "correct"
-                      | "close"
-                      | "incorrect"
-                  )} ${getColumnAnimationClass(5)}`}
-                >
-                  <div>{attempt.guessedPopularity || "Unknown"}</div>
-                  {gameState.answer && (
-                    <div className="text-xs mt-1">
-                      {getDirectionalArrow(
-                        attempt.guessedPopularity ?? null,
-                        gameState.answer.popularity ?? null,
-                        String(comparison?.popularity || "incorrect")
-                      )}
+                  </div>
+                  <div
+                    className={`p-2 rounded text-center text-white font-medium text-xs transition-all duration-500 ${getColumnBackgroundColor(
+                      1,
+                      (comparison?.artistName || "incorrect") as
+                        | "correct"
+                        | "close"
+                        | "incorrect"
+                    )} ${getColumnAnimationClass(1)}`}
+                  >
+                    <div className="break-words leading-tight">
+                      {attempt.guessedArtistName.length > 10 
+                        ? `${attempt.guessedArtistName.substring(0, 10)}...`
+                        : attempt.guessedArtistName}
                     </div>
-                  )}
+                  </div>
+                  <div
+                    className={`p-2 rounded text-center text-white font-medium text-xs transition-all duration-500 ${getColumnBackgroundColor(
+                      4,
+                      (comparison?.releaseYear || "incorrect") as
+                        | "correct"
+                        | "close"
+                        | "incorrect"
+                    )} ${getColumnAnimationClass(4)}`}
+                  >
+                    <div>{attempt.guessedReleaseYear || "???"}</div>
+                    {gameState.answer && (
+                      <div className="text-xs mt-1">
+                        {getDirectionalArrow(
+                          attempt.guessedReleaseYear ?? null,
+                          gameState.answer.releaseYear ?? null,
+                          String(comparison?.releaseYear || "incorrect")
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-1 rounded bg-gray-700 flex items-center justify-center">
+                    {attempt.guessedImageUrl && (
+                      <img
+                        src={attempt.guessedImageUrl}
+                        alt="Album cover"
+                        className="w-8 h-8 rounded object-cover"
+                      />
+                    )}
+                  </div>
                 </div>
-                <div
-                  className={`p-3 rounded text-center text-white font-medium transition-all duration-500 ${getColumnBackgroundColor(
-                    6,
-                    (comparison?.durationMs || "incorrect") as
-                      | "correct"
-                      | "close"
-                      | "incorrect"
-                  )} ${getColumnAnimationClass(6)}`}
-                >
-                  <div>{formatDuration(attempt.guessedDurationMs)}</div>
-                  {gameState.answer && (
-                    <div className="text-xs mt-1">
-                      {getDirectionalArrow(
-                        attempt.guessedDurationMs ?? null,
-                        gameState.answer.durationMs ?? null,
-                        String(comparison?.durationMs || "incorrect")
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div
-                  className={`p-3 rounded text-center text-white font-medium transition-all duration-500 ${getColumnBackgroundColor(
-                    7,
-                    (comparison?.isExplicit || "incorrect") as
-                      | "correct"
-                      | "close"
-                      | "incorrect"
-                  )} ${getColumnAnimationClass(7)}`}
-                >
-                  {attempt.guessedIsExplicit === true
-                    ? "Yes"
-                    : attempt.guessedIsExplicit === false
-                    ? "No"
-                    : "Unknown"}
-                </div>
-                <div className="p-1 rounded bg-gray-700 flex items-center justify-center">
-                  {attempt.guessedImageUrl && (
-                    <img
-                      src={attempt.guessedImageUrl}
-                      alt="Album cover"
-                      className="w-10 h-10 rounded object-cover"
-                    />
-                  )}
-                </div>
-              </div>
+              </>
             );
           })}
         </div>
@@ -814,7 +904,7 @@ export default function DailySongGamePage() {
         {/* Success Modal - Loldle Style */}
         {showSuccessModal && gameState.hasWon && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-green-600 rounded-lg p-8 max-w-md w-full mx-4 text-center text-white relative">
+            <div className="bg-purple-400 rounded-lg p-8 max-w-md w-full mx-4 text-center text-white relative">
               <button
                 onClick={() => setShowSuccessModal(false)}
                 className="absolute top-4 right-4 bg-red-600 hover:bg-red-700 text-white w-8 h-8 rounded flex items-center justify-center font-bold transition-colors"
