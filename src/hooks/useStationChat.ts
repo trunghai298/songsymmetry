@@ -50,7 +50,9 @@ class ChatState {
 
   addListener(listener: () => void) {
     this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
   }
 
   private notifyListeners() {
@@ -79,15 +81,11 @@ export const useStationChat = (stationId: string) => {
 
   // Force re-render when global state changes
   useEffect(() => {
-    globalChatState.addListener(() => {
-      console.log(
-        `🔄 useStationChat: Forcing re-render with ${
-          globalChatState.getMessages().length
-        } messages`
-      );
-      // Use a more efficient update mechanism
-      forceUpdate((prev) => ({}));
+    const unsubscribe = globalChatState.addListener(() => {
+      // Use a more efficient update mechanism without logging
+      forceUpdate({});
     });
+    return unsubscribe;
   }, []);
 
   // Subscribe to socket events - only once globally
@@ -101,15 +99,9 @@ export const useStationChat = (stationId: string) => {
 
     // Only subscribe if no other instance has subscribed yet
     if (globalChatState.getHasSocketSubscription()) {
-      console.log(
-        `📡 useStationChat: Socket subscription already exists, skipping`
-      );
       return;
     }
 
-    console.log(
-      `📡 useStationChat: Setting up socket subscription for station ${stationId}`
-    );
     globalChatState.setHasSocketSubscription(true);
 
     const unsubscribeMessage = subscribe("new-message", (data: Message) => {
@@ -128,12 +120,10 @@ export const useStationChat = (stationId: string) => {
     });
 
     const unsubscribeTyping = subscribe("user-typing", (data: TypingUser) => {
-      console.log(`⌨️ useStationChat: Received typing event:`, data);
       globalChatState.updateTyping(data);
     });
 
     return () => {
-      console.log(`🔌 useStationChat: Cleaning up socket subscription`);
       globalChatState.setHasSocketSubscription(false);
       unsubscribeMessage();
       unsubscribeTyping();
@@ -148,15 +138,6 @@ export const useStationChat = (stationId: string) => {
         );
         return;
       }
-
-      console.log(
-        `📤 useStationChat: Sending message to station ${stationId}:`,
-        {
-          userId: user.id,
-          userName: user.name || "Anonymous",
-          message: message.trim(),
-        }
-      );
 
       sendMessage(stationId, user.id, user.name || "Anonymous", message.trim());
     },

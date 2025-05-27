@@ -35,7 +35,7 @@ export const Header = () => {
   const isAdminUser = session.data?.user && (session.data.user as any).id === '31scr23lvn5o3erf52cyo7vmlgai';
 
   return (
-    <header className="sticky top-0 w-full p-3 sm:p-4 sm:px-10 z-50 transition-all duration-300 bg-black/20 backdrop-blur-md border-b border-white/10">
+    <header className="sticky top-0 w-full p-3 sm:p-4 sm:px-10 z-50 transition-all duration-300 bg-black/20 backdrop-blur-md">
       <nav className="flex w-full items-center justify-between">
         <div
           className="flex gap-x-2 sm:gap-x-3 items-center cursor-pointer group"
@@ -82,7 +82,7 @@ export const Header = () => {
         <div
           className={`${
             isMenuOpen ? "animate-fade-in" : "hidden"
-          } w-full sm:flex sm:items-center sm:w-auto absolute sm:relative top-full sm:top-auto left-0 sm:left-auto bg-black/90 sm:bg-transparent backdrop-blur-md sm:backdrop-blur-none border-b sm:border-0 border-white/10 mt-0 sm:mt-0 p-4 sm:p-0`}
+          } w-full sm:flex sm:items-center sm:w-auto absolute sm:relative top-full sm:top-auto left-0 sm:left-auto sm:bg-transparent mt-0 sm:mt-0 p-4 sm:p-0`}
           id="menu"
         >
           <ul className="text-base text-white flex flex-col sm:flex-row m-0 justify-center sm:justify-between items-center space-y-3 sm:space-y-0 sm:space-x-6 py-2 sm:py-0">

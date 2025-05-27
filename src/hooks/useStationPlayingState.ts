@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useSocket } from '@/hooks/useSocket';
 import { usePlayer } from '@/hooks/usePlayer';
+import { useQueueChat } from '@/hooks/useQueueChat';
 import { getAuthUser } from '@/lib/session';
 import { Station, StationTrack } from '@/hooks/useStationData';
 
@@ -25,12 +26,35 @@ export function useStationPlayingState(stationId: string, station: Station | nul
   const [lastSocketUpdate, setLastSocketUpdate] = useState<number>(0);
   const [pollingInterval, setPollingInterval] = useState<number>(10000);
 
-  // Log what song is currently playing
+  const user = getAuthUser(session);
+  const isCurrentPlayer = redisPlayingState?.playingUserId === user?.id;
+  const lastAnnouncedTrackRef = useRef<string | null>(null);
+
+  // Queue chat functionality - only for current player
+  const { announceNextTrack } = useQueueChat({
+    stationId,
+    isCurrentPlayer,
+    enableQueueChat: true
+  });
+
+  // Log what song is currently playing and announce next track if user is the current player
   useEffect(() => {
-    if (redisPlayingState?.isPlaying) {
+    if (redisPlayingState?.isPlaying && redisPlayingState.trackName) {
       console.log("🎵 Now playing:", redisPlayingState.trackName, "by", redisPlayingState.trackArtist);
+      
+      // Announce next track if this user is the current player and it's a different track
+      if (isCurrentPlayer && redisPlayingState.trackName !== lastAnnouncedTrackRef.current) {
+        lastAnnouncedTrackRef.current = redisPlayingState.trackName;
+        
+        // Delay the announcement slightly to ensure the track has actually started
+        const timeout = setTimeout(() => {
+          announceNextTrack();
+        }, 2000);
+        
+        return () => clearTimeout(timeout);
+      }
     }
-  }, [redisPlayingState?.trackName, redisPlayingState?.isPlaying]);
+  }, [redisPlayingState?.trackName, isCurrentPlayer]); // Removed isPlaying and announceNextTrack to prevent duplicate calls
 
   // Fetch current playing state from Redis/database
   const fetchPlayingState = useCallback(async () => {
@@ -298,5 +322,7 @@ export function useStationPlayingState(stationId: string, station: Station | nul
     isStationOwner,
     isUserMember,
     fetchPlayingState,
+    isCurrentPlayer,
+    announceNextTrack,
   };
 }

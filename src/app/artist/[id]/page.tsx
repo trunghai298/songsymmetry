@@ -45,19 +45,20 @@ function ArtistPage({ params }: { params: { id: string } }) {
     try {
       // Update Redux store for background image and UI state
       dispatch(setTrack(track));
-      
+
       // Play the track using Spotify Web API
       await startPlayback([track.uri]);
-      
+
       toast({
         title: "Now Playing",
         description: `${track.name} by ${track.artists[0].name}`,
       });
     } catch (error) {
-      console.error('Error playing track:', error);
+      console.error("Error playing track:", error);
       toast({
         title: "Playback Error",
-        description: "Could not start playback. Make sure Spotify is open and you have Premium.",
+        description:
+          "Could not start playback. Make sure Spotify is open and you have Premium.",
         variant: "destructive",
       });
     }

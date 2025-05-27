@@ -298,6 +298,13 @@ export class CachedSpotifyClient {
   }
 
   /**
+   * Get current playback queue - no caching as it's real-time
+   */
+  async getUsersQueue() {
+    return this.client.player.getUsersQueue();
+  }
+
+  /**
    * Albums API - direct access to albums endpoints
    */
   get albums() {

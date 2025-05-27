@@ -304,6 +304,16 @@ export const useSocket = () => {
     }
   };
 
+  // Generic function to emit socket events
+  const emitEvent = (eventName: string, data: any) => {
+    const socket = socketRef.current;
+    if (socket && isConnected) {
+      socket.emit(eventName, data);
+    } else {
+      console.warn(`Cannot emit ${eventName}: Socket not connected`);
+    }
+  };
+
   // Function to indicate typing
   const startTyping = (stationId: string, userId: string, userName: string) => {
     const socket = socketRef.current;
@@ -363,10 +373,13 @@ export const useSocket = () => {
 
         // Create a wrapped callback to identify this specific listener
         const wrappedCallback = (...args: any[]) => {
-          console.log(
-            `[Socket] Received event: ${event}`,
-            JSON.stringify(args)
-          );
+          // Only log non-typing events to reduce noise
+          if (event !== 'user-typing') {
+            console.log(
+              `[Socket] Received event: ${event}`,
+              JSON.stringify(args)
+            );
+          }
 
           // Try-catch to protect from callback errors
           try {
@@ -406,6 +419,7 @@ export const useSocket = () => {
     updatePlayback,
     updateStation,
     sendMessage,
+    emitEvent,
     startTyping,
     stopTyping,
     voteTrack,

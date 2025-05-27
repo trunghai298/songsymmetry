@@ -17,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getAuthUser } from "@/lib/session";
 import { useStationData, StationTrack } from "@/hooks/useStationData";
 import { useStationPlayingState } from "@/hooks/useStationPlayingState";
-import TrackList from "./components/TrackList";
+import TrackList, { NowPlayingPanel } from "./components/TrackList";
 import StationChat from "./components/StationChat";
 import { setPlaylist } from "@/lib/redux/slices/playlistSlices";
 
@@ -43,6 +43,7 @@ export default function StationDetailPage() {
     updateStationPlayingState,
     isStationOwner,
     isUserMember,
+    redisPlayingState,
   } = useStationPlayingState(stationId, station);
 
   // Component state (only UI-specific state remains)
@@ -54,7 +55,6 @@ export default function StationDetailPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [addingTrackId, setAddingTrackId] = useState<string | null>(null);
   const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
-  const [debugShowAnimation, setDebugShowAnimation] = useState(false);
 
   // Track whether we've joined the station to prevent multiple joins
   const hasJoinedStationRef = useRef(false);
@@ -77,7 +77,7 @@ export default function StationDetailPage() {
       hasStation: !!station,
       stationId,
       hasJoined: hasJoinedStationRef.current,
-      currentStationId: currentStationIdRef.current
+      currentStationId: currentStationIdRef.current,
     });
 
     if (isConnected && session && station) {
@@ -85,14 +85,24 @@ export default function StationDetailPage() {
       if (!user?.id) return;
 
       // Check if we've already joined this station
-      if (hasJoinedStationRef.current && currentStationIdRef.current === stationId) {
+      if (
+        hasJoinedStationRef.current &&
+        currentStationIdRef.current === stationId
+      ) {
         console.log("⚠️ Already joined station:", stationId, "- skipping");
         return;
       }
 
       // If we're switching stations, leave the previous one first
-      if (hasJoinedStationRef.current && currentStationIdRef.current && currentStationIdRef.current !== stationId) {
-        console.log("🔄 Switching stations - leaving:", currentStationIdRef.current);
+      if (
+        hasJoinedStationRef.current &&
+        currentStationIdRef.current &&
+        currentStationIdRef.current !== stationId
+      ) {
+        console.log(
+          "🔄 Switching stations - leaving:",
+          currentStationIdRef.current
+        );
         leaveStation(currentStationIdRef.current, user.id);
       }
 
@@ -152,48 +162,57 @@ export default function StationDetailPage() {
       });
 
       // Listen for track removed events
-      const unsubscribeTrackRemoved = subscribe("track-removed", (data: any) => {
-        toast({
-          title: "Track removed",
-          description: "A track was removed from the station",
-          variant: "default",
-        });
+      const unsubscribeTrackRemoved = subscribe(
+        "track-removed",
+        (data: any) => {
+          toast({
+            title: "Track removed",
+            description: "A track was removed from the station",
+            variant: "default",
+          });
 
-        setStation((prev) => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            tracks: prev.tracks.filter((t) => t.id !== data.trackId),
-            _count: {
-              ...prev._count,
-              tracks: Math.max(0, prev._count.tracks - 1),
-            },
-          };
-        });
-      });
+          setStation((prev) => {
+            if (!prev) return null;
+            return {
+              ...prev,
+              tracks: prev.tracks.filter((t) => t.id !== data.trackId),
+              _count: {
+                ...prev._count,
+                tracks: Math.max(0, prev._count.tracks - 1),
+              },
+            };
+          });
+        }
+      );
 
       // Listen for station updates
-      const unsubscribeStationUpdated = subscribe("station-updated", (data: any) => {
-        toast({
-          title: "Station updated",
-          description: "Station settings have been updated",
-          variant: "default",
-        });
+      const unsubscribeStationUpdated = subscribe(
+        "station-updated",
+        (data: any) => {
+          toast({
+            title: "Station updated",
+            description: "Station settings have been updated",
+            variant: "default",
+          });
 
-        setStation((prev) => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            ...data.updates,
-          };
-        });
-      });
+          setStation((prev) => {
+            if (!prev) return null;
+            return {
+              ...prev,
+              ...data.updates,
+            };
+          });
+        }
+      );
 
       // Listen for playback updates
-      const unsubscribePlaybackUpdated = subscribe("playback-updated", (data: any) => {
-        console.log("Received playback update:", data);
-        // Handle playback state synchronization here
-      });
+      const unsubscribePlaybackUpdated = subscribe(
+        "playback-updated",
+        (data: any) => {
+          console.log("Received playback update:", data);
+          // Handle playback state synchronization here
+        }
+      );
 
       // Store cleanup functions
       const cleanupFunctions = [
@@ -202,13 +221,13 @@ export default function StationDetailPage() {
         unsubscribeTrackAdded,
         unsubscribeTrackRemoved,
         unsubscribeStationUpdated,
-        unsubscribePlaybackUpdated
+        unsubscribePlaybackUpdated,
       ];
 
       // Return cleanup function
       return () => {
         console.log("🧹 Station socket effect cleanup");
-        cleanupFunctions.forEach(cleanup => cleanup());
+        cleanupFunctions.forEach((cleanup) => cleanup());
       };
     } else {
       console.log("❌ Not joining station - missing requirements");
@@ -220,7 +239,7 @@ export default function StationDetailPage() {
     station,
     stationId,
     joinStation, // Now memoized
-    leaveStation, // Now memoized  
+    leaveStation, // Now memoized
     subscribe, // Now memoized
     toast,
     setStation,
@@ -232,7 +251,10 @@ export default function StationDetailPage() {
       if (hasJoinedStationRef.current && currentStationIdRef.current) {
         const user = getAuthUser(session);
         if (user?.id) {
-          console.log("🧹 Component unmounting - leaving station:", currentStationIdRef.current);
+          console.log(
+            "🧹 Component unmounting - leaving station:",
+            currentStationIdRef.current
+          );
           leaveStation(currentStationIdRef.current, user.id);
           hasJoinedStationRef.current = false;
           currentStationIdRef.current = null;
@@ -394,13 +416,17 @@ export default function StationDetailPage() {
       return;
     }
 
-    try {
-      // If station has a Spotify playlist, play it directly
-      if (station.playlistId) {
-        setPlaylist({ id: station.playlistId } as any);
-        return;
-      }
+    if (!spotify) {
+      toast({
+        title: "Spotify not available",
+        description:
+          "Spotify client is not initialized. Please refresh the page.",
+        variant: "destructive",
+      });
+      return;
+    }
 
+    try {
       toast({
         title: "Loading station...",
         description: "Searching for tracks on Spotify",
@@ -410,9 +436,10 @@ export default function StationDetailPage() {
       const orderedTracks = getUIOrderedTracks(station.tracks);
 
       // Convert station tracks to Spotify Track objects (maintaining UI order)
-      const spotifyTrackPromises = orderedTracks
-        .filter((track) => track.trackId)
-        .map(convertStationTrackToSpotifyTrack);
+      const filteredTracks = orderedTracks.filter((track) => track.trackId);
+      const spotifyTrackPromises = filteredTracks.map(
+        convertStationTrackToSpotifyTrack
+      );
 
       const spotifyTrackResults = await Promise.all(spotifyTrackPromises);
       const spotifyTracks: Track[] = spotifyTrackResults.filter(
@@ -427,6 +454,7 @@ export default function StationDetailPage() {
         });
         return;
       }
+
       // Get available devices for actual playback
       const devices = await getAvailableDevices();
       if (devices.length === 0) {
@@ -446,17 +474,12 @@ export default function StationDetailPage() {
       await startPlayback(trackUris, activeDevice.id || undefined);
 
       // Always clear the previous local playing track first
-      console.log("🧹 Clearing previous local playing track");
       setLocalPlayingTrack(null);
 
       // Simple approach: just set the first station track as playing
       // since we're playing the station in its UI order
       const firstStationTrack = orderedTracks[0];
       if (firstStationTrack) {
-        console.log(
-          "🎯 Setting first station track as playing:",
-          firstStationTrack.name
-        );
         setTimeout(() => {
           setLocalPlayingTrack(firstStationTrack);
         }, 100);
@@ -468,18 +491,11 @@ export default function StationDetailPage() {
           firstStationTrack.id,
           firstSpotifyTrack?.id
         ).catch(console.error);
-      } else {
-        console.log("❌ No tracks in station");
       }
 
       // Force refresh player state after a short delay
       setTimeout(async () => {
-        const newState = await getCurrentPlaybackState();
-        console.log(
-          "🔄 New player state:",
-          newState?.item?.name,
-          newState?.is_playing
-        );
+        await getCurrentPlaybackState();
       }, 2000);
 
       toast({
@@ -491,12 +507,31 @@ export default function StationDetailPage() {
 
       // Handle specific Spotify API errors
       let errorMessage = "Failed to play station tracks";
-      if (error?.message?.includes("No active device")) {
+      if (
+        error?.message?.includes("No active device") ||
+        error?.message?.includes("NO_ACTIVE_DEVICE")
+      ) {
         errorMessage = "Please open Spotify on a device first";
-      } else if (error?.message?.includes("Premium")) {
+      } else if (
+        error?.message?.includes("Premium") ||
+        error?.message?.includes("PREMIUM_REQUIRED")
+      ) {
         errorMessage = "Spotify Premium required for playback control";
-      } else if (error?.message?.includes("Authentication")) {
+      } else if (
+        error?.message?.includes("Authentication") ||
+        error?.status === 401
+      ) {
         errorMessage = "Please sign in to Spotify again";
+      } else if (error?.status === 403) {
+        errorMessage = "Permission denied - check your Spotify account";
+      } else if (error?.status === 404) {
+        errorMessage = "Device or track not found";
+      } else if (error?.status === 429) {
+        errorMessage = "Too many requests - please wait and try again";
+      } else if (error?.status >= 500) {
+        errorMessage = "Spotify server error - please try again later";
+      } else if (error?.message) {
+        errorMessage = error.message;
       }
 
       toast({
@@ -504,7 +539,6 @@ export default function StationDetailPage() {
         description: errorMessage,
         variant: "destructive",
       });
-    } finally {
     }
   };
 
@@ -865,15 +899,6 @@ export default function StationDetailPage() {
             <span className="hidden sm:inline">Back to Stations</span>
             <span className="sm:hidden">Back</span>
           </Button>
-          {/* Debug buttons - remove this later */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setDebugShowAnimation(!debugShowAnimation)}
-            className="text-xs text-black mr-2"
-          >
-            {debugShowAnimation ? "Hide" : "Show"} Animation Test
-          </Button>
         </div>
 
         {/* Station header */}
@@ -1033,6 +1058,21 @@ export default function StationDetailPage() {
           </div>
         </div>
 
+        {/* Now Playing Panel for smaller screens and non-members */}
+        <div className="lg:hidden">
+          <NowPlayingPanel
+            redisPlayingState={redisPlayingState}
+            currentTrack={
+              station.tracks.find(
+                (track) =>
+                  track.id === redisPlayingState?.currentTrackId ||
+                  isTrackCurrentlyPlaying(track)
+              ) || null
+            }
+            formatDate={formatDate}
+          />
+        </div>
+
         {/* Main content with left/right panels on large screens */}
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Left Panel - Tracks & Members */}
@@ -1070,7 +1110,9 @@ export default function StationDetailPage() {
                         ) : (
                           <>
                             <i className="bi bi-person-plus mr-2"></i>
-                            <span className="hidden sm:inline">Join Station</span>
+                            <span className="hidden sm:inline">
+                              Join Station
+                            </span>
                             <span className="sm:hidden">Join</span>
                           </>
                         )}
@@ -1102,7 +1144,9 @@ export default function StationDetailPage() {
                         ) : (
                           <>
                             <i className="bi bi-person-dash mr-2"></i>
-                            <span className="hidden sm:inline">Leave Station</span>
+                            <span className="hidden sm:inline">
+                              Leave Station
+                            </span>
                             <span className="sm:hidden">Leave</span>
                           </>
                         )}
@@ -1128,13 +1172,17 @@ export default function StationDetailPage() {
                         {isDeleting ? (
                           <>
                             <i className="bi bi-arrow-repeat animate-spin mr-2"></i>
-                            <span className="hidden sm:inline">Deleting...</span>
+                            <span className="hidden sm:inline">
+                              Deleting...
+                            </span>
                             <span className="sm:hidden">Delete</span>
                           </>
                         ) : (
                           <>
                             <i className="bi bi-trash mr-2"></i>
-                            <span className="hidden sm:inline">Delete Station</span>
+                            <span className="hidden sm:inline">
+                              Delete Station
+                            </span>
                             <span className="sm:hidden">Delete</span>
                           </>
                         )}
@@ -1150,8 +1198,8 @@ export default function StationDetailPage() {
                   isTrackCurrentlyPlaying={isTrackCurrentlyPlaying}
                   onPlayTrack={handlePlayTrack}
                   playingTrackId={playingTrackId}
-                  debugShowAnimation={debugShowAnimation}
                   formatDate={formatDate}
+                  redisPlayingState={redisPlayingState}
                 />
               </TabsContent>
 
@@ -1191,14 +1239,28 @@ export default function StationDetailPage() {
             </Tabs>
           </div>
 
-          {/* Right Panel - Station Chat (only for members on lg+ screens) */}
-          {isUserMember() && (
-            <div className="hidden lg:block w-full lg:w-1/3">
-              <div className="sticky top-6">
+          {/* Right Panel - Now Playing + Station Chat (for all users on lg+ screens) */}
+          <div className="hidden lg:block w-full lg:w-1/3">
+            <div className="sticky top-24 space-y-4">
+              {/* Now Playing Panel */}
+              <NowPlayingPanel
+                redisPlayingState={redisPlayingState}
+                currentTrack={
+                  station.tracks.find(
+                    (track) =>
+                      track.id === redisPlayingState?.currentTrackId ||
+                      isTrackCurrentlyPlaying(track)
+                  ) || null
+                }
+                formatDate={formatDate}
+              />
+
+              {/* Station Chat (only for members) */}
+              {isUserMember() && (
                 <StationChat stationId={stationId} variant="panel" />
-              </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
 
         {/* Floating Chat for smaller screens */}

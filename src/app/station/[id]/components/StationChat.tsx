@@ -201,7 +201,7 @@ export default function StationChat({ stationId, variant = "floating" }: Station
   }
 
   return (
-    <Card className="fixed bottom-4 right-4 w-80 h-96 z-50 flex flex-col bg-gray-900/95 backdrop-blur-md border-gray-700">
+    <Card className="fixed top-24 right-4 w-80 h-[calc(100vh-8rem)] max-h-[450px] z-50 flex flex-col bg-gray-900/95 backdrop-blur-md border-gray-700">
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-gray-700">
         <div className="flex items-center gap-2">
