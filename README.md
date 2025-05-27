@@ -41,7 +41,7 @@
 
 #### **⚙️ Data Analytics & Background Processing**
 - **📈 Automated Data Updates**: Scheduled imports from ChartMasters using Redis job queues
-- **🔄 Background Workers**: Dedicated processes for heavy data operations
+- **🔄 Background Processing**: Integrated job processing within the main application
 - **🔗 Spotify ID Enrichment**: Automatic mapping of streaming data to Spotify tracks
 - **📊 Performance Monitoring**: Health checks and comprehensive system status endpoints
 

@@ -7,7 +7,7 @@ This document describes the Redis integration for SongSymmetry, used for song da
 SongSymmetry uses Redis for:
 
 1. **Job Queuing**: Managing and scheduling song data update tasks using Bull
-2. **Background Processing**: Running a worker process that executes these tasks
+2. **Background Processing**: Processing jobs within the main application process
 3. **Scheduled Updates**: Automating weekly song data updates
 
 ## Architecture
@@ -15,7 +15,7 @@ SongSymmetry uses Redis for:
 The Redis integration consists of these key components:
 
 - **Queues**: Defines and manages the job queues for song updates using Bull
-- **Workers**: Processes that consume jobs from the queues
+- **Direct Processing**: Jobs are processed within the main application
 - **API Endpoints**: HTTP routes to interact with the job system
 - **Testing Tools**: Utilities to verify Redis connectivity
 
@@ -37,11 +37,11 @@ Connection to Redis is configured via environment variables:
   - Year-specific updates
   - Weekly scheduled updates
 
-### Workers (`src/lib/redis/workers.ts`)
+### Direct Processing (`src/lib/redis/direct-processing.ts`)
 
-- Consumes jobs from the queues
-- Processes song data updates
-- Handles job progress, completion, and error reporting
+- Processes jobs directly within the main application
+- Handles song data updates
+- Manages job progress, completion, and error reporting
 
 ### API Endpoints
 
@@ -54,34 +54,31 @@ Connection to Redis is configured via environment variables:
 
 ## Usage
 
-### Starting the Worker
+### Background Processing
 
-To start the background worker process:
+Job processing is handled automatically within the main application. When you start the main application, it will process any scheduled jobs from the Redis queues.
 
 ```bash
-npm run worker:start
+npm run dev  # or npm start for production
 ```
 
 When deploying to Fly.io, make sure to set the REDIS_URL in your environment variables.
 
 ### Scheduling Updates
 
-To schedule a weekly update:
+All job scheduling is now done through the API endpoints:
+
+To schedule updates via API calls:
 
 ```bash
-npm run worker:schedule:weekly
-```
+# Schedule daily updates
+curl -X POST http://localhost:3000/api/song-updates -H 'Content-Type: application/json' -d '{"action":"schedule-daily"}'
 
-To run a full update of all songs:
+# Run full update immediately  
+curl -X POST http://localhost:3000/api/song-updates -H 'Content-Type: application/json' -d '{"action":"run-full-update"}'
 
-```bash
-npm run worker:update:all
-```
-
-To update songs for a specific year:
-
-```bash
-npm run worker:update:year
+# Update specific year
+curl -X POST http://localhost:3000/api/song-updates -H 'Content-Type: application/json' -d '{"action":"update-year","year":"2025"}'
 ```
 
 ### Testing Redis
@@ -116,13 +113,13 @@ If you're experiencing Redis connection problems:
    npm run redis:test
    ```
 
-### Worker Not Processing Jobs
+### Jobs Not Processing
 
-If the worker isn't processing jobs:
+If jobs aren't being processed:
 
-1. Check the worker logs to see any errors
+1. Check the main application logs for any errors:
    ```bash
-   npm run worker:start
+   npm run dev  # or check your deployment logs
    ```
 
 2. Ensure Redis is available:
@@ -135,3 +132,5 @@ If the worker isn't processing jobs:
    redis-cli
    > keys bull:song-updates:*
    ```
+
+4. Verify jobs are being scheduled by calling the API endpoints and checking the response.
