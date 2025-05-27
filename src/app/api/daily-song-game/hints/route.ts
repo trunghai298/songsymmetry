@@ -68,12 +68,8 @@ export async function POST(request: NextRequest) {
     const latestAttempt = currentGame.attempts[currentGame.attempts.length - 1];
     const currentHintsUsed = latestAttempt?.hintsUsed || [];
 
-    // Check if this hint was already used
-    if (currentHintsUsed.includes(hintType)) {
-      return NextResponse.json({ 
-        error: "This hint has already been used" 
-      }, { status: 400 });
-    }
+    // If hint was already used, return the hint data without updating database
+    const wasAlreadyUsed = currentHintsUsed.includes(hintType);
 
     // Return the appropriate hint
     let hintData = {};
@@ -102,18 +98,21 @@ export async function POST(request: NextRequest) {
         break;
     }
 
-    // Update the latest attempt with the new hint used
-    await prisma.dailySongGameAttempt.update({
-      where: { id: latestAttempt.id },
-      data: {
-        hintsUsed: [...currentHintsUsed, hintType]
-      }
-    });
+    // Update the latest attempt with the new hint used (only if not already used)
+    if (!wasAlreadyUsed) {
+      await prisma.dailySongGameAttempt.update({
+        where: { id: latestAttempt.id },
+        data: {
+          hintsUsed: [...currentHintsUsed, hintType]
+        }
+      });
+    }
 
     return NextResponse.json({
       hint: hintData,
-      hintsUsed: [...currentHintsUsed, hintType],
-      hintsRemaining: 3 - (currentHintsUsed.length + 1)
+      hintsUsed: wasAlreadyUsed ? currentHintsUsed : [...currentHintsUsed, hintType],
+      hintsRemaining: 3 - currentHintsUsed.length - (wasAlreadyUsed ? 0 : 1),
+      alreadyUsed: wasAlreadyUsed
     });
 
   } catch (error) {

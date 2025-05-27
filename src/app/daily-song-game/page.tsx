@@ -190,13 +190,18 @@ export default function DailySongGamePage() {
         setGameState(reversedData);
         
         // Set hints availability
-        console.log('API hintsAvailable:', data.hintsAvailable, 'attemptCount:', data.attemptCount, 'hasWon:', data.hasWon);
         setHintsAvailable(data.hintsAvailable || false);
         
         // Initialize hints used for the current attempt
         if (data.attempts.length > 0) {
           const latestAttempt = data.attempts[data.attempts.length - 1];
-          setHintsUsed(latestAttempt.hintsUsed || []);
+          const usedHints = latestAttempt.hintsUsed || [];
+          setHintsUsed(usedHints);
+          
+          // Restore revealed hints if any were used
+          if (usedHints.length > 0) {
+            restoreRevealedHints(usedHints, data.gameId);
+          }
         }
 
         // Load comparison results for existing attempts (reverse to show newest first)
@@ -500,6 +505,33 @@ export default function DailySongGamePage() {
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
   };
 
+  const restoreRevealedHints = async (usedHints: string[], gameId: string) => {
+    const restoredHints: {[key: string]: any} = {};
+    
+    // Re-fetch each used hint
+    for (const hintType of usedHints) {
+      try {
+        const response = await fetch("/api/daily-song-game/hints", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            gameId: gameId,
+            hintType: hintType
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          restoredHints[hintType] = data.hint.data;
+        }
+      } catch (error) {
+        console.error(`Error restoring ${hintType} hint:`, error);
+      }
+    }
+    
+    setRevealedHints(restoredHints);
+  };
+
   const getHint = async (hintType: string) => {
     if (!gameState || isGettingHint || hintsUsed.includes(hintType)) return;
 
@@ -764,7 +796,6 @@ export default function DailySongGamePage() {
         )}
 
         {/* Hints Section */}
-        {console.log('Hints visibility debug:', { hintsAvailable, hasWon: gameState.hasWon, attemptCount: gameState.attemptCount, hintsUsedLength: hintsUsed.length })}
         {((hintsAvailable && !gameState.hasWon) || (gameState.attemptCount >= 3 && !gameState.hasWon && hintsUsed.length < 3)) && (
           <Card className="p-4 mb-4 bg-slate-800/90 border-slate-600 shadow-lg">
             <div className="mb-3">
