@@ -647,6 +647,25 @@ export default function DailySongGamePage() {
                 } made`}
           </p>
 
+          {/* Hints Help Text */}
+          {!gameState.hasWon && gameState.canPlayMore && (
+            <div className="mb-4">
+              {gameState.attemptCount < 3 ? (
+                <div className="bg-blue-600/20 border border-blue-500/30 rounded-lg p-3 max-w-md mx-auto">
+                  <div className="text-blue-300 text-sm text-center">
+                    💡 <strong>Hint:</strong> Need help? After 3 attempts, you&apos;ll unlock hints to make guessing easier!
+                  </div>
+                </div>
+              ) : !hintsAvailable ? (
+                <div className="bg-green-600/20 border border-green-500/30 rounded-lg p-3 max-w-md mx-auto">
+                  <div className="text-green-300 text-sm text-center">
+                    🎉 <strong>Hints Unlocked!</strong> Scroll down to use helpful hints for this song!
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          )}
+
           {/* Color Legend */}
           <div className="flex justify-center items-center gap-6 text-sm bg-gray-800/30 rounded-lg p-4 max-w-md mx-auto">
             <div className="flex items-center gap-2">
