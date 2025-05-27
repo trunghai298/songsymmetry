@@ -134,14 +134,14 @@ export default function DailySongGamePage() {
   const [isGettingHint, setIsGettingHint] = useState(false);
 
   // Debounced search function
-  const debouncedSearch = useCallback((query: string) => {
-    if (query.trim().length < 2) {
-      setSearchResults([]);
-      setIsSearching(false);
-      return;
-    }
+  const debouncedSearch = useCallback(
+    debounce(async (query: string) => {
+      if (query.trim().length < 2) {
+        setSearchResults([]);
+        setIsSearching(false);
+        return;
+      }
 
-    const performSearch = async () => {
       try {
         const response = await fetch(
           `/api/spotify/search-suggestions?q=${encodeURIComponent(query)}`
@@ -158,10 +158,9 @@ export default function DailySongGamePage() {
       } finally {
         setIsSearching(false);
       }
-    };
-
-    setTimeout(performSearch, 300);
-  }, []);
+    }, 500), // Increased debounce delay to 500ms
+    []
+  );
 
   // Handle search input changes
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
