@@ -57,15 +57,6 @@ export async function GET(request: NextRequest) {
       game.attempts.some(attempt => attempt.isCorrect)
     ).length;
 
-    // Debug hints calculation
-    const hintsAvailableCalc = attemptCount >= 3 && !hasWon;
-    console.log('DEBUG API: Hints calculation:', {
-      attemptCount,
-      hasWon,
-      hintsAvailable: hintsAvailableCalc,
-      userId
-    });
-
     return NextResponse.json({
       gameId: currentGame.id,
       date: currentGame.date,
@@ -91,7 +82,7 @@ export async function GET(request: NextRequest) {
         isExplicit: currentGame.isExplicit
       } : null,
       // Hints system info
-      hintsAvailable: hintsAvailableCalc, // Unlock hints after 3 attempts
+      hintsAvailable: attemptCount >= 3 && !hasWon, // Unlock hints after 3 attempts
       hintsUsed: currentGame.attempts.length > 0 ? currentGame.attempts[currentGame.attempts.length - 1].hintsUsed || [] : []
     });
   } catch (error) {

@@ -190,12 +190,6 @@ export default function DailySongGamePage() {
         setGameState(reversedData);
         
         // Set hints availability
-        console.log('DEBUG: API Response data:', {
-          attemptCount: data.attemptCount,
-          hasWon: data.hasWon,
-          hintsAvailable: data.hintsAvailable,
-          attempts: data.attempts
-        });
         setHintsAvailable(data.hintsAvailable || false);
         
         // Initialize hints used for the current attempt
@@ -523,7 +517,7 @@ export default function DailySongGamePage() {
         const data = await response.json();
         setRevealedHints(prev => ({
           ...prev,
-          [hintType]: data.hint
+          [hintType]: data.hint.data
         }));
         setHintsUsed(prev => [...prev, hintType]);
         
@@ -764,16 +758,7 @@ export default function DailySongGamePage() {
         )}
 
         {/* Hints Section */}
-        {(() => {
-          console.log('DEBUG: Hints condition check:', {
-            hintsAvailable,
-            hasWon: gameState.hasWon,
-            attemptCount: gameState.attemptCount,
-            canPlayMore: gameState.canPlayMore,
-            showHints: hintsAvailable && !gameState.hasWon
-          });
-          return hintsAvailable && !gameState.hasWon;
-        })() && (
+        {hintsAvailable && !gameState.hasWon && (
           <Card className="p-4 mb-4 bg-slate-800/90 border-slate-600 shadow-lg">
             <div className="mb-3">
               <h3 className="text-base font-semibold text-white mb-1 flex items-center gap-2">
