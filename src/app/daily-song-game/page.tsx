@@ -190,6 +190,12 @@ export default function DailySongGamePage() {
         setGameState(reversedData);
         
         // Set hints availability
+        console.log('DEBUG: API Response data:', {
+          attemptCount: data.attemptCount,
+          hasWon: data.hasWon,
+          hintsAvailable: data.hintsAvailable,
+          attempts: data.attempts
+        });
         setHintsAvailable(data.hintsAvailable || false);
         
         // Initialize hints used for the current attempt
@@ -758,39 +764,47 @@ export default function DailySongGamePage() {
         )}
 
         {/* Hints Section */}
-        {hintsAvailable && !gameState.hasWon && (
-          <Card className="p-6 mb-6 bg-gray-800/50 border-gray-700">
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
+        {(() => {
+          console.log('DEBUG: Hints condition check:', {
+            hintsAvailable,
+            hasWon: gameState.hasWon,
+            attemptCount: gameState.attemptCount,
+            canPlayMore: gameState.canPlayMore,
+            showHints: hintsAvailable && !gameState.hasWon
+          });
+          return hintsAvailable && !gameState.hasWon;
+        })() && (
+          <Card className="p-4 mb-4 bg-gray-800/50 border-gray-700">
+            <div className="mb-3">
+              <h3 className="text-base font-semibold text-white mb-1 flex items-center gap-2">
                 💡 Hints Available 
-                <span className="text-sm text-gray-400">
-                  ({3 - hintsUsed.length} remaining)
+                <span className="text-xs text-gray-400">
+                  ({3 - hintsUsed.length} left)
                 </span>
               </h3>
-              <p className="text-sm text-gray-400 mb-4">
-                You&apos;ve tried 3+ times! Use hints to help you guess the song.
+              <p className="text-xs text-gray-400">
+                Use hints to help you guess the song.
               </p>
             </div>
 
             {/* Hint Buttons */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+            <div className="grid grid-cols-3 gap-2 mb-3">
               <Button
                 onClick={() => getHint("thumbnail")}
                 disabled={hintsUsed.includes("thumbnail") || isGettingHint}
                 variant={hintsUsed.includes("thumbnail") ? "secondary" : "outline"}
-                className={`p-4 h-auto flex flex-col items-center gap-2 ${
+                className={`p-2 h-auto flex flex-col items-center gap-1 text-xs ${
                   hintsUsed.includes("thumbnail")
                     ? "bg-green-600/20 border-green-500 text-green-400"
                     : "border-purple-500 text-purple-400 hover:bg-purple-500 hover:text-white"
                 }`}
               >
-                <span className="text-2xl">🖼️</span>
+                <span className="text-lg">🖼️</span>
                 <div className="text-center">
-                  <div className="font-semibold">Song Thumbnail</div>
-                  <div className="text-xs opacity-75">Reveal album cover</div>
+                  <div className="font-medium">Thumbnail</div>
                 </div>
                 {hintsUsed.includes("thumbnail") && (
-                  <span className="text-xs bg-green-600 px-2 py-1 rounded">Used</span>
+                  <span className="text-xs bg-green-600 px-1 py-0.5 rounded">✓</span>
                 )}
               </Button>
 
@@ -798,19 +812,18 @@ export default function DailySongGamePage() {
                 onClick={() => getHint("album")}
                 disabled={hintsUsed.includes("album") || isGettingHint}
                 variant={hintsUsed.includes("album") ? "secondary" : "outline"}
-                className={`p-4 h-auto flex flex-col items-center gap-2 ${
+                className={`p-2 h-auto flex flex-col items-center gap-1 text-xs ${
                   hintsUsed.includes("album")
                     ? "bg-green-600/20 border-green-500 text-green-400"
                     : "border-purple-500 text-purple-400 hover:bg-purple-500 hover:text-white"
                 }`}
               >
-                <span className="text-2xl">💿</span>
+                <span className="text-lg">💿</span>
                 <div className="text-center">
-                  <div className="font-semibold">Album Name</div>
-                  <div className="text-xs opacity-75">Reveal album title</div>
+                  <div className="font-medium">Album</div>
                 </div>
                 {hintsUsed.includes("album") && (
-                  <span className="text-xs bg-green-600 px-2 py-1 rounded">Used</span>
+                  <span className="text-xs bg-green-600 px-1 py-0.5 rounded">✓</span>
                 )}
               </Button>
 
@@ -818,48 +831,46 @@ export default function DailySongGamePage() {
                 onClick={() => getHint("artist")}
                 disabled={hintsUsed.includes("artist") || isGettingHint}
                 variant={hintsUsed.includes("artist") ? "secondary" : "outline"}
-                className={`p-4 h-auto flex flex-col items-center gap-2 ${
+                className={`p-2 h-auto flex flex-col items-center gap-1 text-xs ${
                   hintsUsed.includes("artist")
                     ? "bg-green-600/20 border-green-500 text-green-400"
                     : "border-purple-500 text-purple-400 hover:bg-purple-500 hover:text-white"
                 }`}
               >
-                <span className="text-2xl">🎤</span>
+                <span className="text-lg">🎤</span>
                 <div className="text-center">
-                  <div className="font-semibold">Artist Name</div>
-                  <div className="text-xs opacity-75">Reveal who sings it</div>
+                  <div className="font-medium">Artist</div>
                 </div>
                 {hintsUsed.includes("artist") && (
-                  <span className="text-xs bg-green-600 px-2 py-1 rounded">Used</span>
+                  <span className="text-xs bg-green-600 px-1 py-0.5 rounded">✓</span>
                 )}
               </Button>
             </div>
 
             {/* Revealed Hints Display */}
             {Object.keys(revealedHints).length > 0 && (
-              <div className="border-t border-gray-600 pt-4">
-                <h4 className="text-sm font-semibold text-gray-300 mb-3">Revealed Hints:</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="border-t border-gray-600 pt-2">
+                <div className="grid grid-cols-3 gap-2">
                   {revealedHints.thumbnail && (
-                    <div className="bg-gray-700/50 rounded-lg p-3 text-center">
-                      <div className="text-xs text-gray-400 mb-2">Album Cover</div>
+                    <div className="bg-gray-700/50 rounded p-2 text-center">
+                      <div className="text-xs text-gray-400 mb-1">Cover</div>
                       <img
                         src={revealedHints.thumbnail}
                         alt="Song thumbnail"
-                        className="w-16 h-16 rounded-lg mx-auto object-cover"
+                        className="w-12 h-12 rounded mx-auto object-cover"
                       />
                     </div>
                   )}
                   {revealedHints.album && (
-                    <div className="bg-gray-700/50 rounded-lg p-3 text-center">
-                      <div className="text-xs text-gray-400 mb-2">Album Name</div>
-                      <div className="text-white font-semibold">{revealedHints.album}</div>
+                    <div className="bg-gray-700/50 rounded p-2 text-center">
+                      <div className="text-xs text-gray-400 mb-1">Album</div>
+                      <div className="text-white text-xs font-medium">{revealedHints.album}</div>
                     </div>
                   )}
                   {revealedHints.artist && (
-                    <div className="bg-gray-700/50 rounded-lg p-3 text-center">
-                      <div className="text-xs text-gray-400 mb-2">Artist Name</div>
-                      <div className="text-white font-semibold">{revealedHints.artist}</div>
+                    <div className="bg-gray-700/50 rounded p-2 text-center">
+                      <div className="text-xs text-gray-400 mb-1">Artist</div>
+                      <div className="text-white text-xs font-medium">{revealedHints.artist}</div>
                     </div>
                   )}
                 </div>
