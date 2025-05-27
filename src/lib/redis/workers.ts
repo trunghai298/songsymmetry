@@ -1,6 +1,6 @@
 import Bull from "bull";
 import { PrismaClient } from "@prisma/client";
-import { SONG_UPDATE_QUEUE, DAILY_GAME_QUEUE } from "./queues.js";
+import { SONG_UPDATE_QUEUE, DAILY_GAME_QUEUE } from "./queues";
 
 // Initialize Prisma client
 const prisma = new PrismaClient();
@@ -87,7 +87,7 @@ async function processFullUpdate(job: Bull.Job) {
 
   try {
     // Import the multiYearImport function from the script
-    const { multiYearImport } = await import("../../scripts/multi-year-import.js");
+    const { multiYearImport } = await import("../../scripts/multi-year-import");
 
     // Log the start of the operation
     console.log("Starting full update of all years (2020-2025)...");
@@ -131,7 +131,7 @@ async function processYearUpdate(job: Bull.Job) {
 
   try {
     // Import the multiYearImport function from the script
-    const { multiYearImport } = await import("../../scripts/multi-year-import.js");
+    const { multiYearImport } = await import("../../scripts/multi-year-import");
 
     // Convert year string to number
     const yearNum = parseInt(year, 10);
@@ -175,7 +175,7 @@ async function processWeeklyUpdate(job: Bull.Job) {
 
   try {
     // Import the multiYearImport function from the script
-    const { multiYearImport } = await import("../../scripts/multi-year-import.js");
+    const { multiYearImport } = await import("../../scripts/multi-year-import");
 
     // Get current year
     const currentYear = new Date().getFullYear();
@@ -216,7 +216,7 @@ async function processDailyUpdate(job: Bull.Job) {
 
   try {
     // Import the fetchChartmastersData function directly
-    const { fetchChartmastersData } = await import("../../scripts/fetch-chartmasters.js");
+    const { fetchChartmastersData } = await import("../../scripts/fetch-chartmasters");
 
     // Get current year
     const currentYear = new Date().getFullYear();
@@ -492,7 +492,7 @@ async function createSingleDailyGame(targetDate?: string, gameNumber?: number) {
   console.log(`Selected song: ${randomSong.name} by ${randomSong.artist}`);
 
   // Fetch full track data from Spotify
-  const { spotifyTrackService } = await import("../spotify/trackService.js");
+  const { spotifyTrackService } = await import("../spotify/trackService");
   let spotifyData;
   
   try {

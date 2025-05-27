@@ -375,6 +375,31 @@ export default function StationDetailPage() {
     }
   };
 
+  // State for shuffle mode
+  const [isShuffleMode, setIsShuffleMode] = useState(false);
+  const [shuffledOrder, setShuffledOrder] = useState<string[]>([]);
+
+  // Function to shuffle an array with Fisher-Yates algorithm
+  const shuffleArray = <T,>(array: T[]): T[] => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  };
+
+  // Create new shuffled order when shuffle mode is enabled
+  useEffect(() => {
+    if (isShuffleMode && station?.tracks) {
+      const trackIds = station.tracks.map(track => track.id);
+      const shuffled = shuffleArray(trackIds);
+      setShuffledOrder(shuffled);
+    } else {
+      setShuffledOrder([]);
+    }
+  }, [isShuffleMode, station?.tracks?.length, station?.tracks]); // Re-shuffle when toggle changes or track count changes
+
   // Function to get tracks in the same order as displayed in UI
   const getUIOrderedTracks = (tracks: StationTrack[]) => {
     if (!tracks || tracks.length === 0) return [];
@@ -384,7 +409,13 @@ export default function StationDetailPage() {
     );
 
     if (playingTrackIndex === -1) {
-      // No currently playing track, return original order
+      // No currently playing track, apply shuffle if enabled
+      if (isShuffleMode && shuffledOrder.length > 0) {
+        // Use pre-calculated shuffle order
+        return shuffledOrder
+          .map(id => tracks.find(track => track.id === id))
+          .filter((track): track is StationTrack => track !== undefined);
+      }
       return tracks;
     }
 
@@ -393,6 +424,14 @@ export default function StationDetailPage() {
     const otherTracks = tracks.filter(
       (_, index) => index !== playingTrackIndex
     );
+
+    // Apply shuffle to other tracks if enabled
+    if (isShuffleMode && shuffledOrder.length > 0) {
+      const shuffledOtherTracks = shuffledOrder
+        .map(id => tracks.find(track => track.id === id))
+        .filter((track): track is StationTrack => track !== undefined && track.id !== playingTrack.id);
+      return [playingTrack, ...shuffledOtherTracks];
+    }
 
     return [playingTrack, ...otherTracks];
   };
@@ -1085,6 +1124,48 @@ export default function StationDetailPage() {
                 </TabsList>
 
                 <div className="flex flex-col sm:flex-row gap-2 lg:gap-3 w-full sm:w-auto">
+                  {/* Shuffle Toggle - Show for all users */}
+                  <div className="flex gap-1">
+                    <Button
+                      variant={isShuffleMode ? "default" : "outline"}
+                      onClick={() => setIsShuffleMode(!isShuffleMode)}
+                      className={`flex items-center gap-2 ${
+                        isShuffleMode 
+                          ? "bg-purple-600 hover:bg-purple-700 text-white" 
+                          : "border-purple-500 text-purple-500 hover:bg-purple-500 hover:text-white"
+                      }`}
+                      title={isShuffleMode ? "Disable shuffle mode" : "Enable shuffle mode"}
+                    >
+                      <i className={`bi ${isShuffleMode ? "bi-shuffle" : "bi-arrow-down-up"}`}></i>
+                      <span className="hidden sm:inline">
+                        {isShuffleMode ? "Shuffled" : "Shuffle"}
+                      </span>
+                    </Button>
+                    
+                    {/* Re-shuffle button - only show when shuffle is enabled */}
+                    {isShuffleMode && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (station?.tracks) {
+                            const trackIds = station.tracks.map(track => track.id);
+                            const shuffled = shuffleArray(trackIds);
+                            setShuffledOrder(shuffled);
+                            toast({
+                              title: "Tracks reshuffled",
+                              description: "The track order has been randomized again",
+                            });
+                          }
+                        }}
+                        className="border-purple-500 text-purple-500 hover:bg-purple-500 hover:text-white px-2"
+                        title="Reshuffle tracks"
+                      >
+                        <i className="bi bi-arrow-clockwise"></i>
+                      </Button>
+                    )}
+                  </div>
+
                   {!isUserMember() ? (
                     <>
                       <Button
@@ -1194,12 +1275,13 @@ export default function StationDetailPage() {
 
               <TabsContent value="tracks" className="space-y-4 mt-2">
                 <TrackList
-                  tracks={station.tracks}
+                  tracks={getUIOrderedTracks(station.tracks)}
                   isTrackCurrentlyPlaying={isTrackCurrentlyPlaying}
                   onPlayTrack={handlePlayTrack}
                   playingTrackId={playingTrackId}
                   formatDate={formatDate}
                   redisPlayingState={redisPlayingState}
+                  isShuffleMode={isShuffleMode}
                 />
               </TabsContent>
 

@@ -17,10 +17,15 @@ export async function GET(request: NextRequest) {
         // Get queue statistics
         return await getJobsStats();
       }
+
+      case 'scheduled': {
+        // Get scheduled/repeatable jobs
+        return await getScheduledJobs();
+      }
       
       default:
         return NextResponse.json({
-          error: 'Invalid action. Use ?action=status or ?action=stats'
+          error: 'Invalid action. Use ?action=status, ?action=stats, or ?action=scheduled'
         }, { status: 400 });
     }
   } catch (error) {
@@ -80,9 +85,20 @@ export async function DELETE(request: NextRequest) {
         return await clearFailedJobs(queueName);
       }
 
+      case 'clear-scheduled': {
+        if (!queueName) {
+          return NextResponse.json(
+            { error: 'queue parameter is required' },
+            { status: 400 }
+          );
+        }
+
+        return await clearScheduledJobs(queueName);
+      }
+
       default:
         return NextResponse.json(
-          { error: 'Invalid action. Use: delete-job, clear-completed, or clear-failed' },
+          { error: 'Invalid action. Use: delete-job, clear-completed, clear-failed, or clear-scheduled' },
           { status: 400 }
         );
     }
@@ -469,6 +485,108 @@ async function clearFailedJobs(queueName: string) {
     console.error('Error clearing failed jobs:', error);
     return NextResponse.json(
       { error: 'Failed to clear failed jobs', details: (error as Error).message },
+      { status: 500 }
+    );
+  } finally {
+    try {
+      if (queue) await queue.close();
+    } catch (closeError) {
+      console.warn('Error closing queue connection:', closeError);
+    }
+  }
+}
+
+async function getScheduledJobs() {
+  let songUpdateQueue: Bull.Queue | null = null;
+  let dailyGameQueue: Bull.Queue | null = null;
+  
+  try {
+    // Create queue connections
+    songUpdateQueue = new Bull('song-updates', {
+      redis: process.env.REDIS_URL,
+    });
+    
+    dailyGameQueue = new Bull('daily-game', {
+      redis: process.env.REDIS_URL,
+    });
+
+    // Wait for connections to be ready
+    await Promise.all([
+      songUpdateQueue.isReady(),
+      dailyGameQueue.isReady()
+    ]);
+
+    // Get repeatable jobs (scheduled jobs)
+    const [songUpdateRepeatable, dailyGameRepeatable] = await Promise.all([
+      songUpdateQueue.getRepeatableJobs(),
+      dailyGameQueue.getRepeatableJobs()
+    ]);
+
+    return NextResponse.json({
+      success: true,
+      scheduled: {
+        songUpdates: songUpdateRepeatable.map((job: any) => ({
+          id: job.id,
+          name: job.name || 'Repeatable Job',
+          cron: job.cron,
+          next: job.next,
+          data: job.data || {}
+        })),
+        dailyGames: dailyGameRepeatable.map((job: any) => ({
+          id: job.id,
+          name: job.name || 'Repeatable Job',
+          cron: job.cron,
+          next: job.next,
+          data: job.data || {}
+        }))
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error getting scheduled jobs:', error);
+    return NextResponse.json(
+      { error: 'Failed to get scheduled jobs', details: (error as Error).message },
+      { status: 500 }
+    );
+  } finally {
+    // Clean up connections
+    try {
+      if (songUpdateQueue) await songUpdateQueue.close();
+      if (dailyGameQueue) await dailyGameQueue.close();
+    } catch (closeError) {
+      console.warn('Error closing queue connections:', closeError);
+    }
+  }
+}
+
+async function clearScheduledJobs(queueName: string) {
+  let queue: Bull.Queue | null = null;
+  
+  try {
+    queue = new Bull(queueName, {
+      redis: process.env.REDIS_URL,
+    });
+
+    await queue.isReady();
+
+    // Get all repeatable jobs
+    const repeatableJobs = await queue.getRepeatableJobs();
+    const count = repeatableJobs.length;
+
+    // Remove all repeatable jobs
+    for (const job of repeatableJobs) {
+      await queue.removeRepeatableByKey(job.key);
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: `Cleared ${count} scheduled jobs from ${queueName} queue`,
+      clearedCount: count
+    });
+  } catch (error) {
+    console.error('Error clearing scheduled jobs:', error);
+    return NextResponse.json(
+      { error: 'Failed to clear scheduled jobs', details: (error as Error).message },
       { status: 500 }
     );
   } finally {

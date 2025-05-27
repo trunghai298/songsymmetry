@@ -50,6 +50,14 @@ interface JobStats {
   paused: number;
 }
 
+interface ScheduledJob {
+  id: string;
+  name: string;
+  cron?: string;
+  next?: number;
+  data: any;
+}
+
 // Admin user ID - only this user can access the admin panel
 const ADMIN_USER_ID = '31scr23lvn5o3erf52cyo7vmlgai';
 
@@ -62,8 +70,10 @@ export default function AdminPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [jobsStatus, setJobsStatus] = useState<{ songUpdates: QueueStatus; dailyGames: QueueStatus } | null>(null);
   const [jobsStats, setJobsStats] = useState<{ songUpdates: JobStats; dailyGames: JobStats } | null>(null);
+  const [scheduledJobs, setScheduledJobs] = useState<{ songUpdates: ScheduledJob[]; dailyGames: ScheduledJob[] } | null>(null);
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
   const [operationLoading, setOperationLoading] = useState<string | null>(null);
+  const [workersStatus, setWorkersStatus] = useState<{ workersStarted: boolean; workers: { dailyGame: boolean; songUpdate: boolean } } | null>(null);
 
   const isAdminUser = session?.user && (session.user as any).id === ADMIN_USER_ID;
 
@@ -97,9 +107,11 @@ export default function AdminPage() {
   const fetchJobsStatus = useCallback(async () => {
     try {
       setIsLoadingJobs(true);
-      const [statusResponse, statsResponse] = await Promise.all([
+      const [statusResponse, statsResponse, scheduledResponse, workersResponse] = await Promise.all([
         fetch("/api/admin/jobs?action=status"),
-        fetch("/api/admin/jobs?action=stats")
+        fetch("/api/admin/jobs?action=stats"),
+        fetch("/api/admin/jobs?action=scheduled"),
+        fetch("/api/admin/workers")
       ]);
       
       if (statusResponse.ok) {
@@ -112,6 +124,22 @@ export default function AdminPage() {
         setJobsStats({
           songUpdates: statsData.stats.songUpdates.counts,
           dailyGames: statsData.stats.dailyGames.counts
+        });
+      }
+
+      if (scheduledResponse.ok) {
+        const scheduledData = await scheduledResponse.json();
+        setScheduledJobs({
+          songUpdates: scheduledData.scheduled?.songUpdates || [],
+          dailyGames: scheduledData.scheduled?.dailyGames || []
+        });
+      }
+
+      if (workersResponse.ok) {
+        const workersData = await workersResponse.json();
+        setWorkersStatus({
+          workersStarted: workersData.workersStarted,
+          workers: workersData.workers
         });
       }
     } catch (error) {
@@ -196,6 +224,82 @@ export default function AdminPage() {
       }
     } catch (error) {
       console.error("Error deleting job:", error);
+      toast({
+        title: "Error",
+        description: "Network error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setOperationLoading(null);
+    }
+  };
+
+  const manageWorkers = async (action: 'start' | 'stop') => {
+    try {
+      setOperationLoading(`workers-${action}`);
+      
+      const response = await fetch('/api/admin/workers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        toast({
+          title: "Success!",
+          description: data.message,
+        });
+        
+        // Refresh status
+        await fetchJobsStatus();
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || `Failed to ${action} workers`,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error(`Error ${action}ing workers:`, error);
+      toast({
+        title: "Error",
+        description: "Network error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setOperationLoading(null);
+    }
+  };
+
+  const clearScheduledJobs = async (queueName: string) => {
+    try {
+      setOperationLoading(`clear-scheduled-${queueName}`);
+      
+      const response = await fetch(`/api/admin/jobs?action=clear-scheduled&queue=${queueName}`, {
+        method: "DELETE",
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        toast({
+          title: "Success!",
+          description: data.message,
+        });
+        
+        // Refresh job status
+        await fetchJobsStatus();
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to clear scheduled jobs",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error clearing scheduled jobs:", error);
       toast({
         title: "Error",
         description: "Network error occurred",
@@ -354,6 +458,46 @@ export default function AdminPage() {
     });
   };
 
+  const formatDateTime = (timestamp: number) => {
+    return new Date(timestamp).toLocaleString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  // Check if auto scheduling is enabled for daily games
+  const isDailyGamesAutoScheduled = scheduledJobs?.dailyGames && scheduledJobs.dailyGames.length > 0;
+  
+  // Check if auto scheduling is enabled for song updates  
+  const isSongUpdatesAutoScheduled = scheduledJobs?.songUpdates && scheduledJobs.songUpdates.length > 0;
+
+  // Get next execution time for daily games
+  const getNextDailyGameExecution = () => {
+    if (!scheduledJobs?.dailyGames || scheduledJobs.dailyGames.length === 0) return null;
+    
+    const nextTimes = scheduledJobs.dailyGames
+      .filter(job => job.next)
+      .map(job => job.next!)
+      .sort((a, b) => a - b);
+    
+    return nextTimes.length > 0 ? nextTimes[0] : null;
+  };
+
+  // Get next execution time for song updates
+  const getNextSongUpdateExecution = () => {
+    if (!scheduledJobs?.songUpdates || scheduledJobs.songUpdates.length === 0) return null;
+    
+    const nextTimes = scheduledJobs.songUpdates
+      .filter(job => job.next)
+      .map(job => job.next!)
+      .sort((a, b) => a - b);
+    
+    return nextTimes.length > 0 ? nextTimes[0] : null;
+  };
+
   return (
     <div className="min-h-screen bg-gray-900 pt-20 sm:pt-24">
       <Container>
@@ -432,6 +576,64 @@ export default function AdminPage() {
             </CardContent>
           </Card>
 
+          {/* Worker Status */}
+          <Card className="bg-gray-800 border-gray-700 mb-8">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <Server className="w-5 h-5 text-purple-400" />
+                Background Workers
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-3 h-3 rounded-full ${workersStatus?.workersStarted ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                  <span className="text-white font-medium">
+                    Workers Status: {workersStatus?.workersStarted ? 'Running' : 'Stopped'}
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => manageWorkers('start')}
+                    disabled={operationLoading?.includes('workers-start') || workersStatus?.workersStarted}
+                    size="sm"
+                    className="bg-green-600 hover:bg-green-700 text-white disabled:opacity-50"
+                  >
+                    <Play className="w-3 h-3 mr-1" />
+                    {operationLoading?.includes('workers-start') ? 'Starting...' : 'Start Workers'}
+                  </Button>
+                  <Button
+                    onClick={() => manageWorkers('stop')}
+                    disabled={operationLoading?.includes('workers-stop') || !workersStatus?.workersStarted}
+                    size="sm"
+                    variant="outline"
+                    className="border-red-600 text-red-400 hover:bg-red-600/20 disabled:opacity-50"
+                  >
+                    <XCircle className="w-3 h-3 mr-1" />
+                    {operationLoading?.includes('workers-stop') ? 'Stopping...' : 'Stop Workers'}
+                  </Button>
+                </div>
+              </div>
+              
+              {workersStatus && (
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${workersStatus.workers.dailyGame ? 'bg-green-400' : 'bg-gray-500'}`}></div>
+                    <span className="text-gray-300">Daily Game Worker</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${workersStatus.workers.songUpdate ? 'bg-green-400' : 'bg-gray-500'}`}></div>
+                    <span className="text-gray-300">Song Update Worker</span>
+                  </div>
+                </div>
+              )}
+              
+              <div className="text-xs text-gray-400 bg-gray-700/50 p-3 rounded">
+                <p><strong>Note:</strong> Workers must be running to process background jobs. Start workers before scheduling automatic jobs.</p>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Job Management */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             {/* Daily Game Jobs */}
@@ -443,6 +645,39 @@ export default function AdminPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Auto Schedule Status */}
+                {isDailyGamesAutoScheduled && (
+                  <div className="p-3 bg-green-600/20 border border-green-500/30 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-400" />
+                        <span className="text-green-400 font-medium">Auto Schedule Active</span>
+                      </div>
+                      <Button
+                        onClick={() => clearScheduledJobs('daily-game')}
+                        disabled={operationLoading?.includes('clear-scheduled-daily-game')}
+                        size="sm"
+                        variant="outline"
+                        className="border-red-600 text-red-400 hover:bg-red-600/20 h-7"
+                      >
+                        <XCircle className="w-3 h-3 mr-1" />
+                        Disable
+                      </Button>
+                    </div>
+                    {(() => {
+                      const nextExecution = getNextDailyGameExecution();
+                      return nextExecution ? (
+                        <p className="text-sm text-gray-300 mt-2">
+                          Next execution: {formatDateTime(nextExecution)}
+                        </p>
+                      ) : null;
+                    })()}
+                    <p className="text-xs text-gray-400 mt-1">
+                      Schedule: Every 12 hours (00:00 and 12:00 daily)
+                    </p>
+                  </div>
+                )}
+
                 <div className="flex flex-col sm:flex-row gap-2">
                   <Button
                     onClick={() => executeJobOperation('create-game-now')}
@@ -454,11 +689,16 @@ export default function AdminPage() {
                   </Button>
                   <Button
                     onClick={() => executeJobOperation('start-daily-games')}
-                    disabled={operationLoading === 'start-daily-games'}
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                    disabled={operationLoading === 'start-daily-games' || isDailyGamesAutoScheduled}
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Clock className="w-4 h-4 mr-2" />
-                    {operationLoading === 'start-daily-games' ? 'Enabling...' : 'Auto Schedule'}
+                    {operationLoading === 'start-daily-games' 
+                      ? 'Enabling...' 
+                      : isDailyGamesAutoScheduled 
+                        ? 'Auto Schedule Active' 
+                        : 'Auto Schedule'
+                    }
                   </Button>
                 </div>
                 
@@ -494,6 +734,36 @@ export default function AdminPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Auto Schedule Status */}
+                {isSongUpdatesAutoScheduled && (
+                  <div className="p-3 bg-green-600/20 border border-green-500/30 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-400" />
+                        <span className="text-green-400 font-medium">Auto Schedule Active</span>
+                      </div>
+                      <Button
+                        onClick={() => clearScheduledJobs('song-updates')}
+                        disabled={operationLoading?.includes('clear-scheduled-song-updates')}
+                        size="sm"
+                        variant="outline"
+                        className="border-red-600 text-red-400 hover:bg-red-600/20 h-7"
+                      >
+                        <XCircle className="w-3 h-3 mr-1" />
+                        Disable
+                      </Button>
+                    </div>
+                    {(() => {
+                      const nextExecution = getNextSongUpdateExecution();
+                      return nextExecution ? (
+                        <p className="text-sm text-gray-300 mt-2">
+                          Next execution: {formatDateTime(nextExecution)}
+                        </p>
+                      ) : null;
+                    })()}
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-2">
                   <Button
                     onClick={() => executeJobOperation('run-song-update', 'daily')}
@@ -524,12 +794,17 @@ export default function AdminPage() {
                   </Button>
                   <Button
                     onClick={() => executeJobOperation('start-song-updates')}
-                    disabled={operationLoading === 'start-song-updates'}
+                    disabled={operationLoading === 'start-song-updates' || isSongUpdatesAutoScheduled}
                     size="sm"
-                    className="bg-green-600 hover:bg-green-700 text-white"
+                    className="bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Clock className="w-3 h-3 mr-1" />
-                    {operationLoading === 'start-song-updates' ? 'Enabling...' : 'Auto Schedule'}
+                    {operationLoading === 'start-song-updates' 
+                      ? 'Enabling...' 
+                      : isSongUpdatesAutoScheduled 
+                        ? 'Auto Active' 
+                        : 'Auto Schedule'
+                    }
                   </Button>
                 </div>
                 

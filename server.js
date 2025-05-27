@@ -171,4 +171,33 @@ app.prepare().then(() => {
     console.log(`> Server ready on http://${hostname}:${port}`);
     console.log('> Socket.IO initialized and ready for connections');
   });
+
+  // Graceful shutdown handling
+  const gracefulShutdown = (signal) => {
+    console.log(`\n🛑 Received ${signal}. Shutting down gracefully...`);
+    
+    // Set a timeout to force exit if graceful shutdown takes too long
+    const forceExitTimeout = setTimeout(() => {
+      console.log('⚠️ Force exiting after timeout');
+      process.exit(1);
+    }, 10000); // 10 seconds timeout
+    
+    server.close(() => {
+      console.log('✅ HTTP server closed');
+      clearTimeout(forceExitTimeout);
+      process.exit(0);
+    });
+    
+    // Also handle case where server.close doesn't work
+    setTimeout(() => {
+      console.log('⚠️ Server close timeout, force exiting...');
+      clearTimeout(forceExitTimeout);
+      process.exit(0);
+    }, 5000); // 5 seconds for server close
+  };
+
+  process.on('SIGTERM', gracefulShutdown);
+  process.on('SIGINT', gracefulShutdown);
+  process.on('SIGUSR1', gracefulShutdown);
+  process.on('SIGUSR2', gracefulShutdown);
 });

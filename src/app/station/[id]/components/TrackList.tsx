@@ -14,6 +14,7 @@ interface TrackListProps {
   onPlayTrack: (track: StationTrack, index: number) => void;
   playingTrackId: string | null;
   formatDate: (dateString: string) => string;
+  isShuffleMode?: boolean;
   redisPlayingState?: {
     isPlaying: boolean;
     currentTrackId: string | null;
@@ -141,6 +142,7 @@ export default function TrackList({
   onPlayTrack,
   playingTrackId,
   formatDate,
+  isShuffleMode = false,
   redisPlayingState,
 }: TrackListProps) {
   // Find the current track for the Now Playing panel
@@ -170,6 +172,16 @@ export default function TrackList({
 
   return (
     <div className="space-y-4">
+      {/* Shuffle Mode Indicator */}
+      {isShuffleMode && (
+        <div className="flex items-center gap-2 p-3 bg-purple-600/20 border border-purple-500/30 rounded-lg">
+          <i className="bi bi-shuffle text-purple-400"></i>
+          <span className="text-sm text-purple-300">
+            Shuffle mode is enabled - tracks are playing in random order
+          </span>
+        </div>
+      )}
+
       {/* Track List */}
       <div className="space-y-2">
         {orderedTracks.map((track, index) => {
