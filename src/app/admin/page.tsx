@@ -7,7 +7,7 @@ import Container from "../components/core/Container";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Settings, Play, Calendar, Music, Users, Activity, Server, Database, RefreshCw, Zap, Clock, CheckCircle, XCircle, AlertCircle, Trash2, Trash } from "lucide-react";
+import { Settings, Play, Calendar, Music, Users, Activity, Server, Database, RefreshCw, Zap, Clock, CheckCircle, XCircle, AlertCircle, Trash2, Trash, Monitor, Download, Upload } from "lucide-react";
 
 interface DailyGame {
   id: string;
@@ -74,6 +74,19 @@ export default function AdminPage() {
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
   const [operationLoading, setOperationLoading] = useState<string | null>(null);
   const [workersStatus, setWorkersStatus] = useState<{ workersStarted: boolean; workers: { dailyGame: boolean; songUpdate: boolean } } | null>(null);
+  const [systemHealth, setSystemHealth] = useState<{
+    database: { connected: boolean; tables: number };
+    redis: { connected: boolean };
+    songs: { total: number; hasSpotifyData: number };
+    albums: { total: number; hasSpotifyData: number };
+  } | null>(null);
+  const [isCheckingHealth, setIsCheckingHealth] = useState(false);
+  const [isSettingUpData, setIsSettingUpData] = useState(false);
+  const [setupProgress, setSetupProgress] = useState<{
+    stage: string;
+    progress: number;
+    message: string;
+  } | null>(null);
 
   const isAdminUser = session?.user && (session.user as any).id === ADMIN_USER_ID;
 
@@ -347,10 +360,133 @@ export default function AdminPage() {
     }
   };
 
+  const checkSystemHealth = async () => {
+    try {
+      setIsCheckingHealth(true);
+      const response = await fetch("/api/system/health");
+      
+      if (response.ok) {
+        const data = await response.json();
+        setSystemHealth(data);
+        toast({
+          title: "Health Check Complete",
+          description: "System status updated",
+        });
+      } else {
+        toast({
+          title: "Health Check Failed",
+          description: "Unable to get system status",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error checking system health:", error);
+      toast({
+        title: "Error",
+        description: "Failed to check system health",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCheckingHealth(false);
+    }
+  };
+
+  const setupSystemData = async () => {
+    try {
+      setIsSettingUpData(true);
+      setSetupProgress({ stage: "Initializing", progress: 0, message: "Starting data setup..." });
+
+      const response = await fetch("/api/system/setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (response.ok) {
+        // Poll for progress updates
+        const pollProgress = setInterval(async () => {
+          try {
+            const statusResponse = await fetch("/api/system/health");
+            if (statusResponse.ok) {
+              const statusData = await statusResponse.json();
+              
+              // Update progress based on data counts
+              const totalSongs = statusData.songs?.total || 0;
+              const totalAlbums = statusData.albums?.total || 0;
+              
+              if (totalSongs > 0 || totalAlbums > 0) {
+                setSetupProgress({
+                  stage: "Importing Data",
+                  progress: Math.min(90, (totalSongs + totalAlbums) / 100),
+                  message: `Imported ${totalSongs} songs and ${totalAlbums} albums`
+                });
+              }
+              
+              // Check if setup is complete
+              if (totalSongs > 1000 && totalAlbums > 100) {
+                clearInterval(pollProgress);
+                setSetupProgress({
+                  stage: "Complete",
+                  progress: 100,
+                  message: "Data setup completed successfully!"
+                });
+                
+                setTimeout(() => {
+                  setIsSettingUpData(false);
+                  setSetupProgress(null);
+                  checkSystemHealth();
+                }, 2000);
+              }
+            }
+          } catch (error) {
+            console.error("Error polling progress:", error);
+          }
+        }, 2000);
+
+        // Stop polling after 5 minutes
+        setTimeout(() => {
+          clearInterval(pollProgress);
+          if (isSettingUpData) {
+            setIsSettingUpData(false);
+            setSetupProgress(null);
+            toast({
+              title: "Setup Timeout",
+              description: "Setup is taking longer than expected. Check manually.",
+              variant: "default",
+            });
+          }
+        }, 300000);
+
+        toast({
+          title: "Data Setup Started",
+          description: "This may take several minutes...",
+        });
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: "Setup Failed",
+          description: errorData.error || "Failed to start data setup",
+          variant: "destructive",
+        });
+        setIsSettingUpData(false);
+        setSetupProgress(null);
+      }
+    } catch (error) {
+      console.error("Error setting up data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to start data setup",
+        variant: "destructive",
+      });
+      setIsSettingUpData(false);
+      setSetupProgress(null);
+    }
+  };
+
   useEffect(() => {
     if (status === "authenticated" && isAdminUser) {
       fetchRecentGames();
       fetchJobsStatus();
+      checkSystemHealth();
     }
   }, [status, isAdminUser, fetchRecentGames, fetchJobsStatus]);
 
@@ -510,6 +646,129 @@ export default function AdminPage() {
             </div>
             <p className="text-gray-300">Manage daily song games and system settings</p>
           </div>
+
+          {/* System Setup & Health */}
+          <Card className="bg-gray-800 border-gray-700 mb-8">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center gap-2">
+                <Monitor className="w-5 h-5 text-purple-400" />
+                System Setup & Health
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* System Health Status */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="p-3 bg-gray-700 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className={`w-3 h-3 rounded-full ${systemHealth?.database.connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                    <span className="text-white font-medium">Database</span>
+                  </div>
+                  <div className="text-sm text-gray-300">
+                    {systemHealth ? (
+                      <>
+                        <div>Status: {systemHealth.database.connected ? 'Connected' : 'Disconnected'}</div>
+                        <div>Tables: {systemHealth.database.tables}</div>
+                      </>
+                    ) : (
+                      <div>Checking...</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-3 bg-gray-700 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className={`w-3 h-3 rounded-full ${systemHealth?.redis.connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                    <span className="text-white font-medium">Redis</span>
+                  </div>
+                  <div className="text-sm text-gray-300">
+                    Status: {systemHealth ? (systemHealth.redis.connected ? 'Connected' : 'Disconnected') : 'Checking...'}
+                  </div>
+                </div>
+
+                <div className="p-3 bg-gray-700 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Music className="w-4 h-4 text-blue-400" />
+                    <span className="text-white font-medium">Songs</span>
+                  </div>
+                  <div className="text-sm text-gray-300">
+                    {systemHealth ? (
+                      <>
+                        <div>Total: {systemHealth.songs.total.toLocaleString()}</div>
+                        <div>With Spotify: {systemHealth.songs.hasSpotifyData.toLocaleString()}</div>
+                      </>
+                    ) : (
+                      <div>Checking...</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-3 bg-gray-700 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Database className="w-4 h-4 text-purple-400" />
+                    <span className="text-white font-medium">Albums</span>
+                  </div>
+                  <div className="text-sm text-gray-300">
+                    {systemHealth ? (
+                      <>
+                        <div>Total: {systemHealth.albums.total.toLocaleString()}</div>
+                        <div>With Spotify: {systemHealth.albums.hasSpotifyData.toLocaleString()}</div>
+                      </>
+                    ) : (
+                      <div>Checking...</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Setup Progress */}
+              {setupProgress && (
+                <div className="p-4 bg-blue-600/20 border border-blue-500/30 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-blue-300 font-medium">Setup Progress: {setupProgress.stage}</span>
+                    <span className="text-blue-300 text-sm">{Math.round(setupProgress.progress)}%</span>
+                  </div>
+                  <div className="w-full bg-gray-700 rounded-full h-2 mb-2">
+                    <div 
+                      className="bg-blue-500 h-2 rounded-full transition-all duration-500"
+                      style={{ width: `${setupProgress.progress}%` }}
+                    />
+                  </div>
+                  <p className="text-blue-200 text-sm">{setupProgress.message}</p>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button
+                  onClick={checkSystemHealth}
+                  disabled={isCheckingHealth}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <Monitor className="w-4 h-4 mr-2" />
+                  {isCheckingHealth ? 'Checking...' : 'Check Health'}
+                </Button>
+                <Button
+                  onClick={setupSystemData}
+                  disabled={isSettingUpData || (systemHealth && systemHealth.songs.total > 1000)}
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white disabled:opacity-50"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  {isSettingUpData 
+                    ? 'Setting Up...' 
+                    : (systemHealth && systemHealth.songs.total > 1000)
+                      ? 'Data Already Setup'
+                      : 'Setup Data'
+                  }
+                </Button>
+              </div>
+
+              {/* Info Text */}
+              <div className="text-xs text-gray-400 bg-gray-700/50 p-3 rounded">
+                <p><strong>Setup Data:</strong> Downloads and imports song/album data from external sources. This process may take 5-10 minutes.</p>
+                <p className="mt-1"><strong>Health Check:</strong> Verifies database connectivity, Redis status, and data counts.</p>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Today's Game Status */}
           <Card className="bg-gray-800 border-gray-700 mb-8">
