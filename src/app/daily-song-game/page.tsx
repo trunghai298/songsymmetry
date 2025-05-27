@@ -313,14 +313,14 @@ export default function DailySongGamePage() {
 
       setShowConfetti(true);
 
-      // Stop confetti after 5 seconds for returning users, then show modal
+      // Stop confetti after 3 seconds for returning users, then show modal
       setTimeout(() => {
         setShowConfetti(false);
         // Show success modal after confetti ends
         setTimeout(() => {
           setShowSuccessModal(true);
         }, 500);
-      }, 5000);
+      }, 3000); // Shorter duration for returning users
     }
   }, [gameState?.hasWon, gameState?.gameId, windowSize.width]);
 
@@ -412,22 +412,25 @@ export default function DailySongGamePage() {
           // Trigger confetti for longer duration
           setShowConfetti(true);
 
-          // Stop confetti after 8 seconds, then show success modal
+          // Stop confetti after 5 seconds, then show success modal and toast
           setTimeout(() => {
             setShowConfetti(false);
-            // Show success modal after confetti ends
+            // Show success modal and toast after confetti ends
             setTimeout(() => {
               setShowSuccessModal(true);
+              
+              // Show toast after modal appears
+              setTimeout(() => {
+                toast({
+                  title: "Congratulations! 🎉",
+                  description: `You guessed it in ${
+                    data.attempt.attemptNumber
+                  } attempt${data.attempt.attemptNumber > 1 ? "s" : ""}!`,
+                  variant: "default",
+                });
+              }, 300); // Small delay after modal appears
             }, 500); // Small delay after confetti stops
-          }, 8000);
-
-          toast({
-            title: "Congratulations! 🎉",
-            description: `You guessed it in ${
-              data.attempt.attemptNumber
-            } attempt${data.attempt.attemptNumber > 1 ? "s" : ""}!`,
-            variant: "default",
-          });
+          }, 5000); // Reduced confetti duration to 5 seconds
         }
       } else {
         const error = await response.json();
