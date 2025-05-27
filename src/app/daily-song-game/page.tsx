@@ -79,6 +79,10 @@ interface GameState {
   hasWon: boolean;
   attemptCount: number;
   canPlayMore: boolean;
+  // Game progression info
+  gameNumber?: number;
+  totalGames?: number;
+  completedGames?: number;
   answer?: {
     songName: string;
     artistName: string;
@@ -418,6 +422,27 @@ export default function DailySongGamePage() {
     }
   };
 
+  const playNextGame = async () => {
+    setIsLoading(true);
+    setShowSuccessModal(false);
+    setShowConfetti(false);
+    setComparisons([]);
+    setSearchQuery("");
+    setSearchResults([]);
+    
+    try {
+      // Reload the game state to get the next unfinished game
+      await loadGameState();
+    } catch (error) {
+      console.error("Error loading next game:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load next game",
+        variant: "destructive",
+      });
+    }
+  };
+
   const getResultColor = (result: "correct" | "close" | "incorrect") => {
     switch (result) {
       case "correct":
@@ -519,6 +544,27 @@ export default function DailySongGamePage() {
           <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-2">
             Guess today&apos;s song!
           </h1>
+          
+          {/* Game Progress Indicator */}
+          {gameState.gameNumber && gameState.totalGames && (
+            <div className="mb-3">
+              <div className="bg-gray-800/50 rounded-lg p-3 max-w-sm mx-auto">
+                <div className="text-sm text-gray-300 mb-1">
+                  Game {gameState.gameNumber} of {gameState.totalGames}
+                </div>
+                <div className="w-full bg-gray-700 rounded-full h-2">
+                  <div 
+                    className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${((gameState.completedGames || 0) / gameState.totalGames) * 100}%` }}
+                  />
+                </div>
+                <div className="text-xs text-gray-400 mt-1">
+                  {gameState.completedGames || 0} completed
+                </div>
+              </div>
+            </div>
+          )}
+          
           <p className="text-gray-400 mb-4">
             {gameState.hasWon
               ? `You won in ${gameState.attemptCount} attempt${
@@ -935,6 +981,19 @@ export default function DailySongGamePage() {
                 </div>
               </div>
 
+              {/* Game Progress */}
+              {gameState.gameNumber && gameState.totalGames && (
+                <div className="bg-purple-500 rounded-lg p-3 mb-4">
+                  <div className="text-sm font-semibold">Game Progress</div>
+                  <div className="text-lg">
+                    Game {gameState.gameNumber} of {gameState.totalGames}
+                  </div>
+                  <div className="text-sm opacity-90">
+                    {gameState.completedGames || 0} games completed today
+                  </div>
+                </div>
+              )}
+
               {/* Stats */}
               <div className="space-y-2 mb-6">
                 <div className="text-cyan-200">
@@ -975,15 +1034,32 @@ export default function DailySongGamePage() {
                 </div>
               </div>
 
-              {/* Stats Button */}
-              <button
-                onClick={() =>
-                  (window.location.href = "/daily-song-game/stats")
-                }
-                className="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-semibold transition-colors mb-6"
-              >
-                📊 Stats
-              </button>
+              {/* Action Buttons */}
+              <div className="space-y-3 mb-6">
+                {/* Play Next Game Button - Show if there are more games available */}
+                {gameState.gameNumber && 
+                 gameState.totalGames && 
+                 gameState.completedGames !== undefined &&
+                 gameState.completedGames < gameState.totalGames && (
+                  <button
+                    onClick={playNextGame}
+                    disabled={isLoading}
+                    className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-800 disabled:opacity-50 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+                  >
+                    {isLoading ? "Loading..." : `🎮 Play Next Game (${gameState.completedGames + 1}/${gameState.totalGames})`}
+                  </button>
+                )}
+                
+                {/* Stats Button */}
+                <button
+                  onClick={() =>
+                    (window.location.href = "/daily-song-game/stats")
+                  }
+                  className="w-full bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-semibold transition-colors"
+                >
+                  📊 Stats
+                </button>
+              </div>
 
               {/* Next Song Countdown */}
               <div className="border-t border-green-500 pt-4">
@@ -1002,16 +1078,50 @@ export default function DailySongGamePage() {
         {/* Game over message */}
         {!gameState.canPlayMore && (
           <div className="text-center mt-8">
-            <p className="text-gray-400 mb-4">
-              Come back tomorrow for a new song to guess!
-            </p>
-            <Button
-              onClick={() => (window.location.href = "/daily-song-game/stats")}
-              variant="outline"
-              className="border-purple-500 text-purple-400 hover:bg-purple-500 hover:text-white"
-            >
-              View Your Stats
-            </Button>
+            {/* Check if there are more games available today */}
+            {gameState.gameNumber && 
+             gameState.totalGames && 
+             gameState.completedGames !== undefined &&
+             gameState.completedGames < gameState.totalGames ? (
+              <div className="bg-gradient-to-r from-green-600/20 to-blue-600/20 border border-green-500/30 rounded-lg p-6 mb-4">
+                <p className="text-green-300 text-lg font-semibold mb-2">
+                  🎉 Great job! More games available today!
+                </p>
+                <p className="text-gray-300 mb-4">
+                  You&apos;ve completed {gameState.completedGames} out of {gameState.totalGames} games today.
+                </p>
+                <Button
+                  onClick={playNextGame}
+                  disabled={isLoading}
+                  className="bg-green-600 hover:bg-green-700 disabled:bg-green-800 disabled:opacity-50 text-white mr-4"
+                >
+                  {isLoading ? "Loading..." : `🎮 Play Next Game`}
+                </Button>
+                <Button
+                  onClick={() => (window.location.href = "/daily-song-game/stats")}
+                  variant="outline"
+                  className="border-purple-500 text-purple-400 hover:bg-purple-500 hover:text-white"
+                >
+                  View Your Stats
+                </Button>
+              </div>
+            ) : (
+              <div>
+                <p className="text-gray-400 mb-4">
+                  {gameState.totalGames && gameState.totalGames > 1 
+                    ? `Congratulations! You've completed all ${gameState.totalGames} games for today! 🎉`
+                    : "Come back tomorrow for a new song to guess!"
+                  }
+                </p>
+                <Button
+                  onClick={() => (window.location.href = "/daily-song-game/stats")}
+                  variant="outline"
+                  className="border-purple-500 text-purple-400 hover:bg-purple-500 hover:text-white"
+                >
+                  View Your Stats
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>

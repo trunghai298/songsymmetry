@@ -6,6 +6,49 @@ import { SONG_UPDATE_QUEUE, DAILY_GAME_QUEUE } from "./queues";
 const prisma = new PrismaClient();
 
 /**
+ * Initialize automatic scheduling for daily games
+ */
+async function initializeAutomaticScheduling(queue: Bull.Queue) {
+  try {
+    console.log("🕐 Initializing automatic daily game scheduling...");
+    
+    // Schedule first game at 00:00 (midnight) every day
+    await queue.add(
+      { 
+        type: 'create-single-game',
+        gameNumber: 1 // Midnight game
+      },
+      {
+        repeat: {
+          cron: '0 0 * * *' // Every day at 00:00 (midnight)
+        },
+        jobId: 'daily-game-midnight' // Prevent duplicates
+      }
+    );
+
+    // Schedule second game at 12:00 (noon) every day  
+    await queue.add(
+      { 
+        type: 'create-single-game',
+        gameNumber: 2 // Noon game
+      },
+      {
+        repeat: {
+          cron: '0 12 * * *' // Every day at 12:00 (noon)
+        },
+        jobId: 'daily-game-noon' // Prevent duplicates
+      }
+    );
+
+    console.log("✅ Automatic daily game scheduling initialized");
+    console.log("   - Midnight game: Every day at 00:00");
+    console.log("   - Noon game: Every day at 12:00");
+  } catch (error) {
+    console.error("❌ Failed to initialize automatic scheduling:", error);
+  }
+}
+
+/**
  * Creates and starts a worker to process song update jobs
  */
 export function startSongUpdateWorker() {
@@ -333,6 +376,9 @@ export function startDailyGameWorker() {
     redis: process.env.REDIS_URL,
   });
 
+  // Initialize automatic scheduling for daily games
+  initializeAutomaticScheduling(queue);
+
   // Process daily game jobs
   queue.process(async (job) => {
     console.log(`Processing daily game job ${job.id} with data: ${JSON.stringify(job.data)}`);
@@ -412,11 +458,23 @@ async function processCreateDailyGames(job: Bull.Job) {
  * Process creating a single daily game
  */
 async function processCreateSingleGame(job: Bull.Job) {
-  const { date } = job.data;
-  console.log(`Creating single daily game for date: ${date || 'today'}`);
+  const { date, gameNumber } = job.data;
+  console.log(`Creating single daily game for date: ${date || 'today'} (gameNumber: ${gameNumber || 'auto'})`);
 
   try {
-    const game = await createSingleDailyGame(date);
+    // For automatic scheduled games, determine gameNumber based on current time
+    let actualGameNumber = gameNumber;
+    if (!actualGameNumber) {
+      const currentHour = new Date().getHours();
+      if (currentHour === 0) {
+        actualGameNumber = 1; // Midnight game
+      } else if (currentHour === 12) {
+        actualGameNumber = 2; // Noon game
+      }
+      // If neither 0 nor 12, it's a manual creation (no gameNumber)
+    }
+    
+    const game = await createSingleDailyGame(date, actualGameNumber);
     
     if (game) {
       console.log(`Successfully created daily game: ${game.songName} by ${game.artistName}`);
@@ -436,54 +494,88 @@ async function processCreateSingleGame(job: Bull.Job) {
 /**
  * Create a single daily game using the existing logic
  */
-async function createSingleDailyGame(targetDate?: string, gameNumber?: number) {
+export async function createSingleDailyGame(targetDate?: string, gameNumber?: number) {
   const today = targetDate ? new Date(targetDate) : new Date();
-  today.setHours(0, 0, 0, 0);
-
-  // If creating multiple games for the same day, adjust the time
-  if (gameNumber && gameNumber > 1) {
-    // For the second game, set it to noon (12:00)
-    today.setHours(12, 0, 0, 0); // 12:00 for the second game
-  } else {
-    // First game at midnight (00:00)
-    today.setHours(0, 0, 0, 0); // 00:00 for the first game
+  
+  // Get the current time or use current time if no gameNumber specified
+  const targetTime = new Date();
+  
+  // If gameNumber is specified, set specific times for scheduled games
+  if (gameNumber) {
+    if (gameNumber === 1) {
+      // First scheduled game at midnight local time
+      targetTime.setHours(0, 0, 0, 0);
+    } else if (gameNumber === 2) {
+      // Second scheduled game at noon local time
+      targetTime.setHours(12, 0, 0, 0);
+    } else {
+      // Additional games at current time
+      // targetTime is already set to current time
+    }
   }
+  // If no gameNumber, use current time for manual creation
 
-  console.log(`Creating daily game for ${today.toISOString()}`);
+  console.log(`Creating daily game for ${targetTime.toISOString()}`);
 
   // Check if game already exists for this exact date/time
+  const dateForQuery = targetDate ? new Date(targetDate) : new Date();
   const existingGame = await prisma.dailySongGame.findFirst({
     where: { 
       date: {
-        gte: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0),
-        lt: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1, 0, 0, 0)
+        gte: new Date(dateForQuery.getFullYear(), dateForQuery.getMonth(), dateForQuery.getDate(), 0, 0, 0),
+        lt: new Date(dateForQuery.getFullYear(), dateForQuery.getMonth(), dateForQuery.getDate() + 1, 0, 0, 0)
       }
     }
   });
 
-  // If we're creating multiple games, check the exact hour too
-  if (existingGame && gameNumber) {
+  // Check if game already exists for the specific hour we're targeting
+  if (existingGame) {
     const existingHour = existingGame.date.getHours();
-    const targetHour = today.getHours();
+    const targetHour = targetTime.getHours();
     
     if (existingHour === targetHour) {
-      console.log(`Game already exists for ${today.toISOString()}, skipping creation`);
+      console.log(`Game already exists for ${targetTime.toISOString()}, skipping creation`);
       return existingGame;
     }
-  } else if (existingGame && !gameNumber) {
-    console.log(`Game already exists for ${today.toDateString()}, skipping creation`);
-    return existingGame;
+    
+    // If gameNumber is not provided (manual creation), check if we should allow additional games
+    if (!gameNumber) {
+      // Check if there are already 2 games for today (maximum allowed)
+      const allGamesToday = await prisma.dailySongGame.findMany({
+        where: { 
+          date: {
+            gte: new Date(dateForQuery.getFullYear(), dateForQuery.getMonth(), dateForQuery.getDate(), 0, 0, 0),
+            lt: new Date(dateForQuery.getFullYear(), dateForQuery.getMonth(), dateForQuery.getDate() + 1, 0, 0, 0)
+          }
+        }
+      });
+      
+      if (allGamesToday.length >= 2) {
+        console.log(`⚠️ Maximum of 2 games already exist for ${dateForQuery.toDateString()}. Admin override required.`);
+        console.log(`   Existing games: ${allGamesToday.map(g => g.songName).join(', ')}`);
+        return null; // Don't create additional games beyond the limit
+      }
+      
+      console.log(`✅ Found ${allGamesToday.length} game(s) for today, creating additional game at ${targetHour}:00`);
+    }
   }
 
   // Get a random popular song with Spotify ID
-  const randomSong = await prisma.mostStreamedSongs.findFirst({
+  const availableSongs = await prisma.mostStreamedSongs.findMany({
     where: {
       spotifyId: { not: null },
       name: { not: null },
       artist: { not: null }
     },
-    skip: Math.floor(Math.random() * 500) // Random offset in top 500
+    take: 100 // Get top 100 songs
   });
+
+  if (availableSongs.length === 0) {
+    throw new Error("No suitable songs found for daily game");
+  }
+
+  // Pick a random song from the available ones
+  const randomSong = availableSongs[Math.floor(Math.random() * availableSongs.length)];
 
   if (!randomSong || !randomSong.spotifyId) {
     throw new Error("No suitable songs found for daily game");
@@ -518,7 +610,7 @@ async function createSingleDailyGame(targetDate?: string, gameNumber?: number) {
   // Create the game with complete Spotify data
   const game = await prisma.dailySongGame.create({
     data: {
-      date: today,
+      date: targetTime,
       songId: spotifyData.songId,
       songName: spotifyData.songName,
       artistName: spotifyData.artistName,

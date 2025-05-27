@@ -6,19 +6,24 @@ async function createDailyGame() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Check if game already exists
-    const existing = await prisma.dailySongGame.findFirst({
+    // Check if we already have 2 games for today (maximum allowed)
+    const existingGames = await prisma.dailySongGame.findMany({
       where: { 
         date: {
           gte: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0),
           lt: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1, 0, 0, 0)
         }
-      }
+      },
+      orderBy: { date: 'asc' }
     });
 
-    if (existing) {
-      console.log("Game already exists for today:", existing.songName);
+    if (existingGames.length >= 2) {
+      console.log(`Maximum of 2 games already exist for today. Games: ${existingGames.map(g => g.songName).join(', ')}`);
       return;
+    }
+
+    if (existingGames.length > 0) {
+      console.log(`Found ${existingGames.length} existing game(s) for today, creating additional game`);
     }
 
     // Get a random popular song with Spotify ID

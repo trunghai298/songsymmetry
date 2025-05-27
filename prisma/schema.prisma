@@ -113,61 +113,59 @@ model StationTrack {
 }
 
 model User {
-  id              String          @id @default(uuid())
+  id              String                 @id @default(uuid())
   name            String?
-  email           String?         @unique
+  email           String?                @unique
   image           String?
-  spotifyId       String?         @unique
+  spotifyId       String?                @unique
   spotifyToken    String?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  gameAttempts    DailySongGameAttempt[]
   ownedStations   Station[]
-  playingStations Station[]       @relation("StationPlayingUser")
+  playingStations Station[]              @relation("StationPlayingUser")
   memberships     StationMember[]
   addedTracks     StationTrack[]
-  gameAttempts    DailySongGameAttempt[]
 }
 
-// Daily Song Guessing Game Models
 model DailySongGame {
-  id           String                 @id @default(uuid())
-  date         DateTime               // Multiple games per day allowed
-  songId       String                 // Spotify track ID
-  songName     String
-  artistName   String
-  albumName    String?
-  genre        String?
-  releaseYear  Int?
-  popularity   Int?                   // Spotify popularity score
-  durationMs   Int?
-  imageUrl     String?
-  isExplicit   Boolean?               // Explicit content flag
-  createdAt    DateTime               @default(now())
-  attempts     DailySongGameAttempt[]
+  id          String                 @id @default(uuid())
+  date        DateTime
+  songId      String
+  songName    String
+  artistName  String
+  albumName   String?
+  genre       String?
+  releaseYear Int?
+  popularity  Int?
+  durationMs  Int?
+  imageUrl    String?
+  createdAt   DateTime               @default(now())
+  isExplicit  Boolean?
+  attempts    DailySongGameAttempt[]
 
   @@index([date])
 }
 
 model DailySongGameAttempt {
-  id           String        @id @default(uuid())
-  gameId       String
-  userId       String
-  guessedSongId String       // Spotify track ID of the guess
-  guessedSongName String
-  guessedArtistName String
-  guessedAlbumName String?
-  guessedGenre String?
+  id                 String        @id @default(uuid())
+  gameId             String
+  userId             String
+  guessedSongId      String
+  guessedSongName    String
+  guessedArtistName  String
+  guessedAlbumName   String?
+  guessedGenre       String?
   guessedReleaseYear Int?
-  guessedPopularity Int?
-  guessedDurationMs Int?
-  guessedImageUrl String?
-  guessedIsExplicit Boolean?
-  attemptNumber Int          // 1, 2, 3, etc.
-  isCorrect    Boolean      @default(false)
-  createdAt    DateTime     @default(now())
-  
-  game         DailySongGame @relation(fields: [gameId], references: [id], onDelete: Cascade)
-  user         User          @relation(fields: [userId], references: [id])
+  guessedPopularity  Int?
+  guessedDurationMs  Int?
+  guessedImageUrl    String?
+  attemptNumber      Int
+  isCorrect          Boolean       @default(false)
+  createdAt          DateTime      @default(now())
+  guessedIsExplicit  Boolean?
+  game               DailySongGame @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  user               User          @relation(fields: [userId], references: [id])
 
   @@unique([gameId, userId, attemptNumber])
   @@index([gameId])
