@@ -412,25 +412,14 @@ export default function DailySongGamePage() {
           // Trigger confetti for longer duration
           setShowConfetti(true);
 
-          // Stop confetti after 5 seconds, then show success modal and toast
+          // Stop confetti after 5 seconds, then show success modal
           setTimeout(() => {
             setShowConfetti(false);
-            // Show success modal and toast after confetti ends
+            // Show success modal after confetti ends
             setTimeout(() => {
               setShowSuccessModal(true);
-              
-              // Show toast after modal appears
-              setTimeout(() => {
-                toast({
-                  title: "Congratulations! 🎉",
-                  description: `You guessed it in ${
-                    data.attempt.attemptNumber
-                  } attempt${data.attempt.attemptNumber > 1 ? "s" : ""}!`,
-                  variant: "default",
-                });
-              }, 300); // Small delay after modal appears
             }, 500); // Small delay after confetti stops
-          }, 5000); // Reduced confetti duration to 5 seconds
+          }, 5000);
         }
       } else {
         const error = await response.json();
