@@ -7,8 +7,13 @@ async function createDailyGame() {
     today.setHours(0, 0, 0, 0);
 
     // Check if game already exists
-    const existing = await prisma.dailySongGame.findUnique({
-      where: { date: today }
+    const existing = await prisma.dailySongGame.findFirst({
+      where: { 
+        date: {
+          gte: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0),
+          lt: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1, 0, 0, 0)
+        }
+      }
     });
 
     if (existing) {

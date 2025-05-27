@@ -31,8 +31,13 @@ export async function POST(request: NextRequest) {
     gameDate.setHours(0, 0, 0, 0);
 
     // Check if game already exists for this date
-    const existingGame = await prisma.dailySongGame.findUnique({
-      where: { date: gameDate }
+    const existingGame = await prisma.dailySongGame.findFirst({
+      where: { 
+        date: {
+          gte: new Date(gameDate.getFullYear(), gameDate.getMonth(), gameDate.getDate(), 0, 0, 0),
+          lt: new Date(gameDate.getFullYear(), gameDate.getMonth(), gameDate.getDate() + 1, 0, 0, 0)
+        }
+      }
     });
 
     if (existingGame) {
@@ -205,8 +210,13 @@ export async function PUT(request: NextRequest) {
     today.setHours(0, 0, 0, 0);
 
     // Check if game already exists for today
-    const existingGame = await prisma.dailySongGame.findUnique({
-      where: { date: today }
+    const existingGame = await prisma.dailySongGame.findFirst({
+      where: { 
+        date: {
+          gte: new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0),
+          lt: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1, 0, 0, 0)
+        }
+      }
     });
 
     if (existingGame) {

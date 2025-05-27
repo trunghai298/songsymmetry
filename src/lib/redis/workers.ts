@@ -536,4 +536,3 @@ async function createSingleDailyGame(targetDate?: string, gameNumber?: number) {
   return game;
 }
 
-export { startSongUpdateWorker, startDailyGameWorker };
