@@ -164,6 +164,7 @@ model DailySongGameAttempt {
   isCorrect          Boolean       @default(false)
   createdAt          DateTime      @default(now())
   guessedIsExplicit  Boolean?
+  hintsUsed          String[]      @default([]) // Array of hint types used: ["thumbnail", "album", "artist"]
   game               DailySongGame @relation(fields: [gameId], references: [id], onDelete: Cascade)
   user               User          @relation(fields: [userId], references: [id])
 

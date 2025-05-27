@@ -80,7 +80,10 @@ export async function GET(request: NextRequest) {
         durationMs: currentGame.durationMs,
         imageUrl: currentGame.imageUrl,
         isExplicit: currentGame.isExplicit
-      } : null
+      } : null,
+      // Hints system info
+      hintsAvailable: attemptCount >= 3 && !hasWon, // Unlock hints after 3 attempts
+      hintsUsed: currentGame.attempts.length > 0 ? currentGame.attempts[currentGame.attempts.length - 1].hintsUsed || [] : []
     });
   } catch (error) {
     console.error("Error fetching daily song game:", error);
@@ -100,7 +103,7 @@ export async function POST(request: NextRequest) {
 
     const userId = (session.user as any).id;
     const body = await request.json();
-    const { guessedSongId } = body;
+    const { guessedSongId, hintsUsed = [] } = body;
 
     if (!guessedSongId) {
       return NextResponse.json({ error: "Guessed song ID is required" }, { status: 400 });
@@ -196,7 +199,8 @@ export async function POST(request: NextRequest) {
         guessedImageUrl: spotifyData.imageUrl,
         guessedIsExplicit: spotifyData.isExplicit,
         attemptNumber,
-        isCorrect
+        isCorrect,
+        hintsUsed
       }
     });
 

@@ -126,6 +126,12 @@ export default function DailySongGamePage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
   const [completionCount, setCompletionCount] = useState<number | null>(null);
+  
+  // Hints system state
+  const [hintsAvailable, setHintsAvailable] = useState(false);
+  const [hintsUsed, setHintsUsed] = useState<string[]>([]);
+  const [revealedHints, setRevealedHints] = useState<{[key: string]: any}>({});
+  const [isGettingHint, setIsGettingHint] = useState(false);
 
   // Debounced search function
   const debouncedSearch = useCallback((query: string) => {
@@ -182,6 +188,15 @@ export default function DailySongGamePage() {
           attempts: data.attempts.slice().reverse(),
         };
         setGameState(reversedData);
+        
+        // Set hints availability
+        setHintsAvailable(data.hintsAvailable || false);
+        
+        // Initialize hints used for the current attempt
+        if (data.attempts.length > 0) {
+          const latestAttempt = data.attempts[data.attempts.length - 1];
+          setHintsUsed(latestAttempt.hintsUsed || []);
+        }
 
         // Load comparison results for existing attempts (reverse to show newest first)
         const comps: ComparisonResult[] = [];
@@ -326,7 +341,10 @@ export default function DailySongGamePage() {
       const response = await fetch("/api/daily-song-game", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guessedSongId: track.id }),
+        body: JSON.stringify({ 
+          guessedSongId: track.id,
+          hintsUsed: hintsUsed
+        }),
       });
 
       if (response.ok) {
@@ -345,6 +363,10 @@ export default function DailySongGamePage() {
               }
             : null
         );
+        
+        // Update hints availability and reset hints used for next attempt
+        setHintsAvailable(data.hintsAvailable || false);
+        setHintsUsed([]);
 
         // Start animation for the new row (index 0 since we prepend)
         setAnimatingRowIndex(0);
@@ -429,6 +451,9 @@ export default function DailySongGamePage() {
     setComparisons([]);
     setSearchQuery("");
     setSearchResults([]);
+    setHintsUsed([]);
+    setRevealedHints({});
+    setHintsAvailable(false);
     
     try {
       // Reload the game state to get the next unfinished game
@@ -472,6 +497,53 @@ export default function DailySongGamePage() {
     const minutes = Math.floor(ms / 60000);
     const seconds = Math.floor((ms % 60000) / 1000);
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  };
+
+  const getHint = async (hintType: string) => {
+    if (!gameState || isGettingHint || hintsUsed.includes(hintType)) return;
+
+    setIsGettingHint(true);
+    try {
+      const response = await fetch("/api/daily-song-game/hints", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          gameId: gameState.gameId,
+          hintType: hintType
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setRevealedHints(prev => ({
+          ...prev,
+          [hintType]: data.hint
+        }));
+        setHintsUsed(prev => [...prev, hintType]);
+        
+        toast({
+          title: "Hint revealed! 💡",
+          description: `You've used a ${hintType} hint`,
+          variant: "default",
+        });
+      } else {
+        const error = await response.json();
+        toast({
+          title: "Error",
+          description: error.error || "Failed to get hint",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error getting hint:", error);
+      toast({
+        title: "Error",
+        description: "Failed to get hint",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGettingHint(false);
+    }
   };
 
   if (isLoading) {
@@ -661,6 +733,117 @@ export default function DailySongGamePage() {
                     </Button>
                   </div>
                 ))}
+              </div>
+            )}
+          </Card>
+        )}
+
+        {/* Hints Section */}
+        {hintsAvailable && !gameState.hasWon && (
+          <Card className="p-6 mb-6 bg-gray-800/50 border-gray-700">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
+                💡 Hints Available 
+                <span className="text-sm text-gray-400">
+                  ({3 - hintsUsed.length} remaining)
+                </span>
+              </h3>
+              <p className="text-sm text-gray-400 mb-4">
+                You&apos;ve tried 3+ times! Use hints to help you guess the song.
+              </p>
+            </div>
+
+            {/* Hint Buttons */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+              <Button
+                onClick={() => getHint("thumbnail")}
+                disabled={hintsUsed.includes("thumbnail") || isGettingHint}
+                variant={hintsUsed.includes("thumbnail") ? "secondary" : "outline"}
+                className={`p-4 h-auto flex flex-col items-center gap-2 ${
+                  hintsUsed.includes("thumbnail")
+                    ? "bg-green-600/20 border-green-500 text-green-400"
+                    : "border-purple-500 text-purple-400 hover:bg-purple-500 hover:text-white"
+                }`}
+              >
+                <span className="text-2xl">🖼️</span>
+                <div className="text-center">
+                  <div className="font-semibold">Song Thumbnail</div>
+                  <div className="text-xs opacity-75">Reveal album cover</div>
+                </div>
+                {hintsUsed.includes("thumbnail") && (
+                  <span className="text-xs bg-green-600 px-2 py-1 rounded">Used</span>
+                )}
+              </Button>
+
+              <Button
+                onClick={() => getHint("album")}
+                disabled={hintsUsed.includes("album") || isGettingHint}
+                variant={hintsUsed.includes("album") ? "secondary" : "outline"}
+                className={`p-4 h-auto flex flex-col items-center gap-2 ${
+                  hintsUsed.includes("album")
+                    ? "bg-green-600/20 border-green-500 text-green-400"
+                    : "border-purple-500 text-purple-400 hover:bg-purple-500 hover:text-white"
+                }`}
+              >
+                <span className="text-2xl">💿</span>
+                <div className="text-center">
+                  <div className="font-semibold">Album Name</div>
+                  <div className="text-xs opacity-75">Reveal album title</div>
+                </div>
+                {hintsUsed.includes("album") && (
+                  <span className="text-xs bg-green-600 px-2 py-1 rounded">Used</span>
+                )}
+              </Button>
+
+              <Button
+                onClick={() => getHint("artist")}
+                disabled={hintsUsed.includes("artist") || isGettingHint}
+                variant={hintsUsed.includes("artist") ? "secondary" : "outline"}
+                className={`p-4 h-auto flex flex-col items-center gap-2 ${
+                  hintsUsed.includes("artist")
+                    ? "bg-green-600/20 border-green-500 text-green-400"
+                    : "border-purple-500 text-purple-400 hover:bg-purple-500 hover:text-white"
+                }`}
+              >
+                <span className="text-2xl">🎤</span>
+                <div className="text-center">
+                  <div className="font-semibold">Artist Name</div>
+                  <div className="text-xs opacity-75">Reveal who sings it</div>
+                </div>
+                {hintsUsed.includes("artist") && (
+                  <span className="text-xs bg-green-600 px-2 py-1 rounded">Used</span>
+                )}
+              </Button>
+            </div>
+
+            {/* Revealed Hints Display */}
+            {Object.keys(revealedHints).length > 0 && (
+              <div className="border-t border-gray-600 pt-4">
+                <h4 className="text-sm font-semibold text-gray-300 mb-3">Revealed Hints:</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {revealedHints.thumbnail && (
+                    <div className="bg-gray-700/50 rounded-lg p-3 text-center">
+                      <div className="text-xs text-gray-400 mb-2">Album Cover</div>
+                      <img
+                        src={revealedHints.thumbnail}
+                        alt="Song thumbnail"
+                        className="w-16 h-16 rounded-lg mx-auto object-cover"
+                      />
+                    </div>
+                  )}
+                  {revealedHints.album && (
+                    <div className="bg-gray-700/50 rounded-lg p-3 text-center">
+                      <div className="text-xs text-gray-400 mb-2">Album Name</div>
+                      <div className="text-white font-semibold">{revealedHints.album}</div>
+                    </div>
+                  )}
+                  {revealedHints.artist && (
+                    <div className="bg-gray-700/50 rounded-lg p-3 text-center">
+                      <div className="text-xs text-gray-400 mb-2">Artist Name</div>
+                      <div className="text-white font-semibold">{revealedHints.artist}</div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </Card>
