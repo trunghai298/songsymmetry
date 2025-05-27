@@ -117,7 +117,7 @@ export function NowPlayingPanel({ redisPlayingState, currentTrack, formatDate }:
             by {trackArtist}
           </p>
           <p className="text-xs text-gray-400 mt-1">
-            Playing on {playerName}'s Spotify
+            Playing on {playerName}&apos;s Spotify
           </p>
         </div>
 

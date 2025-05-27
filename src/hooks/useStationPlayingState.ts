@@ -54,7 +54,7 @@ export function useStationPlayingState(stationId: string, station: Station | nul
         return () => clearTimeout(timeout);
       }
     }
-  }, [redisPlayingState?.trackName, isCurrentPlayer]); // Removed isPlaying and announceNextTrack to prevent duplicate calls
+  }, [redisPlayingState?.trackName, redisPlayingState?.isPlaying, redisPlayingState?.trackArtist, isCurrentPlayer, announceNextTrack]);
 
   // Fetch current playing state from Redis/database
   const fetchPlayingState = useCallback(async () => {
@@ -311,7 +311,7 @@ export function useStationPlayingState(stationId: string, station: Station | nul
     if (stationId) {
       fetchPlayingState();
     }
-  }, [fetchPlayingState]);
+  }, [stationId, fetchPlayingState]);
 
   return {
     redisPlayingState,

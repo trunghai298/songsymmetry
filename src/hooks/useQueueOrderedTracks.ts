@@ -183,7 +183,7 @@ export const useQueueOrderedTracks = ({
       // Fallback: use empty queue ordering for current player (puts finished tracks at bottom)
       orderTracksByQueue([], 'Error fallback');
     }
-  }, [spotify, user, isCurrentPlayer, enableQueueOrdering, tracks, isTrackCurrentlyPlaying]);
+  }, [spotify, user, isCurrentPlayer, enableQueueOrdering, tracks, isTrackCurrentlyPlaying, orderTracksByQueue]);
 
   // Handle broadcasted queue updates for non-current players
   useEffect(() => {
