@@ -200,7 +200,7 @@ export default function DailySongGamePage() {
           
           // Restore revealed hints if any were used
           if (usedHints.length > 0) {
-            restoreRevealedHints(usedHints, data.gameId);
+            restoreRevealedHints(usedHints, data);
           }
         }
 
@@ -505,28 +505,16 @@ export default function DailySongGamePage() {
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
   };
 
-  const restoreRevealedHints = async (usedHints: string[], gameId: string) => {
+  const restoreRevealedHints = (usedHints: string[], gameData: any) => {
     const restoredHints: {[key: string]: any} = {};
     
-    // Re-fetch each used hint
-    for (const hintType of usedHints) {
-      try {
-        const response = await fetch("/api/daily-song-game/hints", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            gameId: gameId,
-            hintType: hintType
-          }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          restoredHints[hintType] = data.hint.data;
+    // Use the hint data from the main API response
+    if (gameData.revealedHintData) {
+      usedHints.forEach(hintType => {
+        if (gameData.revealedHintData[hintType]) {
+          restoredHints[hintType] = gameData.revealedHintData[hintType];
         }
-      } catch (error) {
-        console.error(`Error restoring ${hintType} hint:`, error);
-      }
+      });
     }
     
     setRevealedHints(restoredHints);

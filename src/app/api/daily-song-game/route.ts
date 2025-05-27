@@ -57,6 +57,27 @@ export async function GET(request: NextRequest) {
       game.attempts.some(attempt => attempt.isCorrect)
     ).length;
 
+    // Get hints used and prepare revealed hint data
+    const hintsUsed = currentGame.attempts.length > 0 ? currentGame.attempts[currentGame.attempts.length - 1].hintsUsed || [] : [];
+    const revealedHintData: {[key: string]: any} = {};
+    
+    // Include hint data for used hints (to avoid additional API calls)
+    if (hintsUsed.length > 0 && attemptCount >= 3) {
+      hintsUsed.forEach((hintType: string) => {
+        switch (hintType) {
+          case 'thumbnail':
+            revealedHintData.thumbnail = currentGame.imageUrl;
+            break;
+          case 'album':
+            revealedHintData.album = currentGame.albumName;
+            break;
+          case 'artist':
+            revealedHintData.artist = currentGame.artistName;
+            break;
+        }
+      });
+    }
+
     return NextResponse.json({
       gameId: currentGame.id,
       date: currentGame.date,
@@ -83,7 +104,9 @@ export async function GET(request: NextRequest) {
       } : null,
       // Hints system info
       hintsAvailable: attemptCount >= 3 && !hasWon, // Unlock hints after 3 attempts
-      hintsUsed: currentGame.attempts.length > 0 ? currentGame.attempts[currentGame.attempts.length - 1].hintsUsed || [] : []
+      hintsUsed: hintsUsed,
+      // Include revealed hint data to avoid additional API calls
+      revealedHintData: revealedHintData
     });
   } catch (error) {
     console.error("Error fetching daily song game:", error);
