@@ -774,15 +774,15 @@ export default function DailySongGamePage() {
           });
           return hintsAvailable && !gameState.hasWon;
         })() && (
-          <Card className="p-4 mb-4 bg-gray-800/50 border-gray-700">
+          <Card className="p-4 mb-4 bg-gradient-to-br from-purple-900/40 via-blue-900/30 to-purple-800/40 border-purple-500/30 shadow-lg backdrop-blur-sm">
             <div className="mb-3">
-              <h3 className="text-base font-semibold text-white mb-1 flex items-center gap-2">
+              <h3 className="text-base font-semibold bg-gradient-to-r from-purple-300 to-blue-300 bg-clip-text text-transparent mb-1 flex items-center gap-2">
                 💡 Hints Available 
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-purple-300/80">
                   ({3 - hintsUsed.length} left)
                 </span>
               </h3>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-purple-200/70">
                 Use hints to help you guess the song.
               </p>
             </div>
@@ -793,10 +793,10 @@ export default function DailySongGamePage() {
                 onClick={() => getHint("thumbnail")}
                 disabled={hintsUsed.includes("thumbnail") || isGettingHint}
                 variant={hintsUsed.includes("thumbnail") ? "secondary" : "outline"}
-                className={`p-2 h-auto flex flex-col items-center gap-1 text-xs ${
+                className={`p-2 h-auto flex flex-col items-center gap-1 text-xs transition-all duration-200 ${
                   hintsUsed.includes("thumbnail")
-                    ? "bg-green-600/20 border-green-500 text-green-400"
-                    : "border-purple-500 text-purple-400 hover:bg-purple-500 hover:text-white"
+                    ? "bg-gradient-to-br from-green-600/30 to-emerald-600/20 border-green-400/50 text-green-300 shadow-md"
+                    : "bg-gradient-to-br from-purple-600/20 to-blue-600/20 border-purple-400/50 text-purple-300 hover:from-purple-500/30 hover:to-blue-500/30 hover:text-white hover:border-purple-300 hover:shadow-lg"
                 }`}
               >
                 <span className="text-lg">🖼️</span>
@@ -812,10 +812,10 @@ export default function DailySongGamePage() {
                 onClick={() => getHint("album")}
                 disabled={hintsUsed.includes("album") || isGettingHint}
                 variant={hintsUsed.includes("album") ? "secondary" : "outline"}
-                className={`p-2 h-auto flex flex-col items-center gap-1 text-xs ${
+                className={`p-2 h-auto flex flex-col items-center gap-1 text-xs transition-all duration-200 ${
                   hintsUsed.includes("album")
-                    ? "bg-green-600/20 border-green-500 text-green-400"
-                    : "border-purple-500 text-purple-400 hover:bg-purple-500 hover:text-white"
+                    ? "bg-gradient-to-br from-green-600/30 to-emerald-600/20 border-green-400/50 text-green-300 shadow-md"
+                    : "bg-gradient-to-br from-purple-600/20 to-blue-600/20 border-purple-400/50 text-purple-300 hover:from-purple-500/30 hover:to-blue-500/30 hover:text-white hover:border-purple-300 hover:shadow-lg"
                 }`}
               >
                 <span className="text-lg">💿</span>
@@ -831,10 +831,10 @@ export default function DailySongGamePage() {
                 onClick={() => getHint("artist")}
                 disabled={hintsUsed.includes("artist") || isGettingHint}
                 variant={hintsUsed.includes("artist") ? "secondary" : "outline"}
-                className={`p-2 h-auto flex flex-col items-center gap-1 text-xs ${
+                className={`p-2 h-auto flex flex-col items-center gap-1 text-xs transition-all duration-200 ${
                   hintsUsed.includes("artist")
-                    ? "bg-green-600/20 border-green-500 text-green-400"
-                    : "border-purple-500 text-purple-400 hover:bg-purple-500 hover:text-white"
+                    ? "bg-gradient-to-br from-green-600/30 to-emerald-600/20 border-green-400/50 text-green-300 shadow-md"
+                    : "bg-gradient-to-br from-purple-600/20 to-blue-600/20 border-purple-400/50 text-purple-300 hover:from-purple-500/30 hover:to-blue-500/30 hover:text-white hover:border-purple-300 hover:shadow-lg"
                 }`}
               >
                 <span className="text-lg">🎤</span>
@@ -849,28 +849,28 @@ export default function DailySongGamePage() {
 
             {/* Revealed Hints Display */}
             {Object.keys(revealedHints).length > 0 && (
-              <div className="border-t border-gray-600 pt-2">
+              <div className="border-t border-purple-400/20 pt-2">
                 <div className="grid grid-cols-3 gap-2">
                   {revealedHints.thumbnail && (
-                    <div className="bg-gray-700/50 rounded p-2 text-center">
-                      <div className="text-xs text-gray-400 mb-1">Cover</div>
+                    <div className="bg-gradient-to-br from-indigo-900/30 to-purple-900/20 border border-indigo-400/20 rounded-lg p-2 text-center backdrop-blur-sm">
+                      <div className="text-xs text-indigo-300/80 mb-1">Cover</div>
                       <img
                         src={revealedHints.thumbnail}
                         alt="Song thumbnail"
-                        className="w-12 h-12 rounded mx-auto object-cover"
+                        className="w-12 h-12 rounded-lg mx-auto object-cover border border-indigo-400/30 shadow-md"
                       />
                     </div>
                   )}
                   {revealedHints.album && (
-                    <div className="bg-gray-700/50 rounded p-2 text-center">
-                      <div className="text-xs text-gray-400 mb-1">Album</div>
-                      <div className="text-white text-xs font-medium">{revealedHints.album}</div>
+                    <div className="bg-gradient-to-br from-indigo-900/30 to-purple-900/20 border border-indigo-400/20 rounded-lg p-2 text-center backdrop-blur-sm">
+                      <div className="text-xs text-indigo-300/80 mb-1">Album</div>
+                      <div className="text-indigo-100 text-xs font-medium">{revealedHints.album}</div>
                     </div>
                   )}
                   {revealedHints.artist && (
-                    <div className="bg-gray-700/50 rounded p-2 text-center">
-                      <div className="text-xs text-gray-400 mb-1">Artist</div>
-                      <div className="text-white text-xs font-medium">{revealedHints.artist}</div>
+                    <div className="bg-gradient-to-br from-indigo-900/30 to-purple-900/20 border border-indigo-400/20 rounded-lg p-2 text-center backdrop-blur-sm">
+                      <div className="text-xs text-indigo-300/80 mb-1">Artist</div>
+                      <div className="text-indigo-100 text-xs font-medium">{revealedHints.artist}</div>
                     </div>
                   )}
                 </div>
