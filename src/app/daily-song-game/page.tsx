@@ -190,6 +190,7 @@ export default function DailySongGamePage() {
         setGameState(reversedData);
         
         // Set hints availability
+        console.log('API hintsAvailable:', data.hintsAvailable, 'attemptCount:', data.attemptCount, 'hasWon:', data.hasWon);
         setHintsAvailable(data.hintsAvailable || false);
         
         // Initialize hints used for the current attempt
@@ -521,6 +522,11 @@ export default function DailySongGamePage() {
         }));
         setHintsUsed(prev => [...prev, hintType]);
         
+        // Ensure hints remain available after using one (unless all 3 are used)
+        if (hintsUsed.length + 1 < 3) {
+          setHintsAvailable(true);
+        }
+        
         toast({
           title: "Hint revealed! 💡",
           description: `You've used a ${hintType} hint`,
@@ -656,7 +662,7 @@ export default function DailySongGamePage() {
                     💡 <strong>Hint:</strong> Need help? After 3 attempts, you&apos;ll unlock hints to make guessing easier!
                   </div>
                 </div>
-              ) : !hintsAvailable ? (
+              ) : gameState.attemptCount >= 3 ? (
                 <div className="bg-green-600/20 border border-green-500/30 rounded-lg p-3 max-w-md mx-auto">
                   <div className="text-green-300 text-sm text-center">
                     🎉 <strong>Hints Unlocked!</strong> Scroll down to use helpful hints for this song!
@@ -758,7 +764,8 @@ export default function DailySongGamePage() {
         )}
 
         {/* Hints Section */}
-        {hintsAvailable && !gameState.hasWon && (
+        {console.log('Hints visibility debug:', { hintsAvailable, hasWon: gameState.hasWon, attemptCount: gameState.attemptCount, hintsUsedLength: hintsUsed.length })}
+        {((hintsAvailable && !gameState.hasWon) || (gameState.attemptCount >= 3 && !gameState.hasWon && hintsUsed.length < 3)) && (
           <Card className="p-4 mb-4 bg-slate-800/90 border-slate-600 shadow-lg">
             <div className="mb-3">
               <h3 className="text-base font-semibold text-white mb-1 flex items-center gap-2">
