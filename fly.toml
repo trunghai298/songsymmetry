@@ -5,6 +5,9 @@ primary_region = "sin"
 [build.args]
 NEXT_PUBLIC_EXAMPLE = "Value goes here"
 
+[deploy]
+release_command = "npx prisma migrate deploy"
+
 [env]
 PORT = "8080"
 
