@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import Container from "../components/core/Container";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -41,6 +42,7 @@ interface PlaylistInfo {
 
 function PlaylistsPage() {
   const { data: session } = useSession();
+  const router = useRouter();
   const { requireAuth, authModalProps } = useAuthModal({
     feature: "view your playlists",
     message: "Sign in with Spotify to see all your playlists"
@@ -265,6 +267,16 @@ function PlaylistsPage() {
                           <ExternalLink className="w-3 h-3 mr-1" />
                           Open
                         </Button>
+                        {playlist.name.toLowerCase().includes('your top songs') && /20\d{2}/.test(playlist.name) && (
+                          <Button
+                            size="sm"
+                            onClick={() => router.push(`/playlist/${playlist.id}`)}
+                            className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-semibold text-xs py-1 px-2 rounded-md"
+                          >
+                            <Play className="w-3 h-3 mr-1" />
+                            View
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </CardContent>

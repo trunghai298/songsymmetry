@@ -163,7 +163,8 @@ function Wrapped() {
     }
 
     try {
-      const trackUris = topTracks.items.slice(0, 10).map(track => track.uri);
+      // Use all tracks, not just first 10
+      const trackUris = topTracks.items.map(track => track.uri);
       dispatch(setTrack(topTracks.items[0]));
       await startPlayback(trackUris);
       
@@ -879,9 +880,22 @@ function Wrapped() {
         <Dialog open={showAllTracksDialog} onOpenChange={setShowAllTracksDialog}>
           <DialogContent className="max-w-4xl max-h-[95vh] bg-gray-800 border-gray-700 mx-2 sm:mx-4 w-[calc(100vw-1rem)] sm:w-auto">
             <DialogHeader>
-              <DialogTitle className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
-                <Music className="w-5 h-5 text-spotify-green" />
-                <span className="truncate">Your Top {topTracks?.items?.length || 50} Songs - {timeRangeLabels[selectedTimeRange]}</span>
+              <DialogTitle className="text-lg sm:text-xl font-bold text-white flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Music className="w-5 h-5 text-spotify-green" />
+                  <span className="truncate">Your Top {topTracks?.items?.length || 50} Songs - {timeRangeLabels[selectedTimeRange]}</span>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setShowAllTracksDialog(false);
+                    playAllTracks();
+                  }}
+                  className="bg-spotify-green hover:bg-spotify-green/90 text-black font-semibold px-3 py-2 rounded-full"
+                >
+                  <Play className="w-4 h-4 mr-2" />
+                  Play All
+                </Button>
               </DialogTitle>
             </DialogHeader>
             
