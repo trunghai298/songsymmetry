@@ -113,6 +113,26 @@ export const Header = () => {
               <>
                 <a
                   className={`group relative text-lg font-medium cursor-pointer transition-all duration-300 ${
+                    currentPath === "/ai-search" 
+                      ? "text-purple-400" 
+                      : "text-gray-200 hover:text-white"
+                  }`}
+                  onClick={() => {
+                    router.push("/ai-search");
+                    setCurrentPath("/ai-search");
+                    setIsMenuOpen(false);
+                  }}
+                >
+                  <span className="relative z-10 flex items-center gap-2">
+                    <i className="bi bi-robot text-lg"></i>
+                    AI Search
+                  </span>
+                  <div className={`absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-purple-400 to-pink-400 transition-all duration-300 ${
+                    currentPath === "/ai-search" ? "w-full" : "w-0 group-hover:w-full"
+                  }`}></div>
+                </a>
+                <a
+                  className={`group relative text-lg font-medium cursor-pointer transition-all duration-300 ${
                     currentPath === "/daily-song-game" || currentPath.startsWith("/daily-song-game")
                       ? "text-purple-400" 
                       : "text-gray-200 hover:text-white"
