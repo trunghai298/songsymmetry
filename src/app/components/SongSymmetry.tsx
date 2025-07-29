@@ -15,7 +15,7 @@ import { useTrackRecommendations } from "@/hooks/useTrackRecommendations";
 import { useTopTracks } from "@/hooks/useTopTracks";
 
 // Components
-import SearchResults from "./song/SearchResults";
+import EnhancedSearchResults from "./song/EnhancedSearchResults";
 import SongDetails from "./song/SongDetails";
 import SimilarSongsList from "./song/SimilarSongsList";
 import PlaylistDialog from "./song/PlaylistDialog";
@@ -117,7 +117,7 @@ function SongSymmetry() {
         {songRecommendation ? (
           renderRecommendations()
         ) : (
-          <SearchResults
+          <EnhancedSearchResults
             searchQuery={searchQuery}
             searchResult={searchResult}
             yourTopTracks={topTracks?.items}
