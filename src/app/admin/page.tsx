@@ -749,13 +749,13 @@ export default function AdminPage() {
                 </Button>
                 <Button
                   onClick={setupSystemData}
-                  disabled={isSettingUpData || (systemHealth && systemHealth.songs.total > 1000)}
+                  disabled={isSettingUpData || (systemHealth?.songs.total ?? 0) > 1000}
                   className="flex-1 bg-green-600 hover:bg-green-700 text-white disabled:opacity-50"
                 >
                   <Download className="w-4 h-4 mr-2" />
                   {isSettingUpData 
                     ? 'Setting Up...' 
-                    : (systemHealth && systemHealth.songs.total > 1000)
+                    : (systemHealth?.songs.total ?? 0) > 1000
                       ? 'Data Already Setup'
                       : 'Setup Data'
                   }
