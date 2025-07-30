@@ -105,6 +105,35 @@ export default function AIRecommendations({ onClickTrack }: AIRecommendationsPro
     }
   };
 
+  const handlePlayAll = async () => {
+    const tracksWithSpotify = recommendations.filter(rec => rec.spotifyTrack);
+    
+    if (tracksWithSpotify.length === 0) {
+      toast({
+        title: "No Tracks Available",
+        description: "None of the recommendations are available on Spotify.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const trackUris = tracksWithSpotify.map(rec => rec.spotifyTrack!.uri);
+      await startPlayback(trackUris);
+      toast({
+        title: "Playing All Recommendations",
+        description: `Added ${tracksWithSpotify.length} songs to your queue`,
+      });
+    } catch (error) {
+      console.error('Error playing all tracks:', error);
+      toast({
+        title: "Playback Error",
+        description: "Could not start playback. Make sure Spotify is open.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <Card className="w-full max-w-7xl mx-auto bg-gradient-to-br from-gray-900 to-gray-800 border-gray-700">
       <CardHeader className="relative overflow-hidden">
@@ -198,8 +227,19 @@ export default function AIRecommendations({ onClickTrack }: AIRecommendationsPro
         ) : (
           <>
             {recommendations.length > 0 && (
-              <div className="mb-4 text-sm text-gray-400 text-center">
-                Showing {recommendations.length} personalized recommendations
+              <div className="mb-4 flex items-center justify-between">
+                <div className="text-sm text-gray-400">
+                  Showing {recommendations.length} personalized recommendations
+                </div>
+                <Button
+                  onClick={handlePlayAll}
+                  disabled={!recommendations.some(rec => rec.spotifyTrack)}
+                  size="sm"
+                  className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white border-0"
+                >
+                  <Play className="mr-2 h-4 w-4" />
+                  Play All
+                </Button>
               </div>
             )}
             <div className={`grid gap-4 ${

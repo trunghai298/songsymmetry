@@ -26,6 +26,7 @@ ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres"
 ENV NEXTAUTH_SECRET="dummy-nextauth-secret"
 ENV NEXTAUTH_URL="http://localhost:3000"
 ENV REDIS_URL="redis://localhost:6379"
+ENV GEMINI_API_KEY="dummy-gemini-api-key"
 
 RUN npx prisma generate
 RUN npm run build
